@@ -1,0 +1,14 @@
+{
+  "name": "vExacto",
+  "short_name": "vExacto",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#F7F8FA",
+  "theme_color": "#FF6B00",
+  "description": "Cobros inteligentes en Bs y USD para comerciantes venezolanos",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

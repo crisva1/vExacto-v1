@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="vExacto">
+<meta name="theme-color" content="#FF6B00">
+<title>vExacto</title>
+<link rel="apple-touch-icon" href="./icon-192.png">
+<link rel="icon" type="image/png" href="./icon-192.png">
+<link rel="manifest" href="./manifest.json">
+<link rel="stylesheet" href="./styles.css">
+<!-- Montserrat para el logotipo -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
+
+<script>
+(function() {
+  var t = localStorage.getItem('calcu_tema') || 'light';
+  document.documentElement.setAttribute('data-theme', t);
+  var s = document.createElement('style');
+  s.id = 'bloqueo-inicial';
+  s.textContent =
+    '#muro-bloqueo{display:flex!important}' +
+    '#app-content{display:none!important}' +
+    '#screen-onboarding{display:none!important}';
+  document.head.appendChild(s);
+})();
+</script>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     LOGO SVG INLINE — reutilizado en toda la app
+     ══════════════════════════════════════════ -->
+<svg style="display:none">
+  <symbol id="logo-v" viewBox="0 0 52 52">
+    <!-- V exterior -->
+    <path d="M6 8 L20 38 L26 24 L32 38 L46 8"
+          stroke="url(#lg)" stroke-width="7"
+          stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <!-- checkmark interior -->
+    <path d="M20 30 L26 40 L32 30"
+          stroke="url(#lg2)" stroke-width="4"
+          stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <!-- punto -->
+    <circle cx="26" cy="47" r="3" fill="url(#lg)"/>
+    <defs>
+      <linearGradient id="lg" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#FF6B00"/>
+        <stop offset="100%" stop-color="#FFB800"/>
+      </linearGradient>
+      <linearGradient id="lg2" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#FFB800"/>
+        <stop offset="100%" stop-color="#FF6B00"/>
+      </linearGradient>
+    </defs>
+  </symbol>
+</svg>
+
+<!-- ══════════════════════════════════════════
+     MURO DE LICENCIA
+     ══════════════════════════════════════════ -->
+<div id="muro-bloqueo">
+
+  <div class="muro-logo">
+    <div class="muro-icon">
+      <svg width="52" height="52"><use href="#logo-v"/></svg>
+    </div>
+    <div class="muro-title">
+      <span style="font-family:'Montserrat',sans-serif;font-weight:400;font-size:inherit">v</span><span style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:inherit">Exacto</span>
+    </div>
+    <div class="muro-sub">Cobros inteligentes · Activación</div>
+  </div>
+
+  <div class="card-licencia">
+
+    <!-- Banner Android -->
+    <div class="install-banner" id="banner-android">
+      <div class="install-banner-icon">📲</div>
+      <div class="install-banner-body">
+        <div class="install-banner-title">Instalar como app</div>
+        <div class="install-banner-msg">
+          Toca <strong>Instalar</strong> y espera que termine la descarga. Luego búscala en tu lista de aplicaciones o pantalla de inicio — aparecerá con el ícono naranja de vExacto.
+        </div>
+        <button class="install-banner-btn" onclick="accionInstalar()">Instalar en Android</button>
+      </div>
+    </div>
+
+    <!-- Banner iOS -->
+    <div class="install-banner" id="banner-ios">
+      <div class="install-banner-icon">📱</div>
+      <div class="install-banner-body">
+        <div class="install-banner-title">Instalar en iPhone</div>
+        <div class="install-banner-msg">
+          Solo funciona desde <strong>Safari</strong>. Toca compartir → "Añadir a pantalla de inicio" → Agregar. Luego búscala entre tus apps instaladas.
+        </div>
+        <button class="install-banner-btn ios" onclick="accionInstalar()">Ver instrucciones</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="seg-label" style="margin-bottom:8px">Tus datos</div>
+      <div style="display:flex;flex-direction:column;gap:9px">
+        <input class="field-input" type="text" id="reg-nom" placeholder="Nombre y Apellido" autocomplete="off">
+        <input class="field-input" type="text" id="reg-ci"  placeholder="Cédula de identidad" autocomplete="off" inputmode="numeric">
+      </div>
+    </div>
+
+    <div>
+      <div class="id-label">ID de tu dispositivo</div>
+      <div class="id-box" id="mi-id-display">Calculando…</div>
+    </div>
+
+    <button class="btn btn-ws" onclick="pedirAcceso()">📲 Solicitar activación por WhatsApp</button>
+
+    <div class="divider"></div>
+
+    <div>
+      <div class="seg-label" style="margin-bottom:8px">Tengo mi clave</div>
+      <input class="field-input" type="text" id="clave-in"
+        placeholder="Pega aquí tu clave de activación"
+        autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false">
+    </div>
+
+    <button class="btn btn-act" onclick="activar()">🔓 Activar licencia</button>
+    <p class="msg-error" id="msg-error"></p>
+  </div>
+</div>
+
+<!-- Modal iOS -->
+<div id="modal-ios">
+  <div class="modal-ios-card">
+    <p class="modal-ios-title">📱 Instalar en iPhone / iPad</p>
+    <div class="paso"><div class="paso-num">1</div><div class="paso-txt">Abre este enlace en <strong>Safari</strong> (no Chrome ni otro navegador)</div></div>
+    <div class="paso"><div class="paso-num">2</div><div class="paso-txt">Toca el ícono de <strong>compartir</strong> — el cuadrado con flecha hacia arriba en la barra inferior</div></div>
+    <div class="paso"><div class="paso-num">3</div><div class="paso-txt">Desplázate y toca <strong>"Añadir a pantalla de inicio"</strong></div></div>
+    <div class="paso"><div class="paso-num">4</div><div class="paso-txt">Toca <strong>"Agregar"</strong>. Luego búscala entre tus apps instaladas con el ícono de vExacto.</div></div>
+    <button class="btn-cerrar" onclick="cerrarModalIos()">✓ Entendido</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     ONBOARDING — Tasas del día
+     ══════════════════════════════════════════ -->
+<div id="screen-onboarding">
+  <div class="ob-logo">
+    <div class="ob-icon">
+      <svg width="52" height="52"><use href="#logo-v"/></svg>
+    </div>
+    <div class="ob-title">
+      <span style="font-family:'Montserrat',sans-serif;font-weight:400">v</span><span style="font-family:'Montserrat',sans-serif;font-weight:800">Exacto</span>
+    </div>
+    <div class="ob-sub">Ingresa las tasas del día para comenzar a cobrar</div>
+  </div>
+  <div class="ob-card">
+    <div class="ob-step">⚙️ Configuración del día</div>
+    <div class="ob-row">
+      <div class="ob-field">
+        <div class="ob-label">USD BCV (Bs/$)</div>
+        <input class="field-input tasa" type="number" id="ob-bcv" step="0.01" inputmode="decimal" placeholder="0.00">
+      </div>
+      <div class="ob-field">
+        <div class="ob-label">USD Mercado (Bs/$)</div>
+        <input class="field-input tasa" type="number" id="ob-mercado" step="0.01" inputmode="decimal" placeholder="0.00">
+      </div>
+    </div>
+    <div class="hint-box">
+      💡 La brecha entre <strong>BCV</strong> y <strong>Mercado</strong> activa tu protección de margen. Puedes editarlas desde el menú.
+    </div>
+    <button class="btn btn-primary" onclick="confirmarOnboarding()">✓ Comenzar a cobrar</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     DRAWER — Menú lateral
+     ══════════════════════════════════════════ -->
+<div id="drawer-overlay" onclick="cerrarDrawer()"></div>
+<div id="drawer">
+  <div class="drawer-head">
+    <div class="drawer-head-icon">
+      <svg width="28" height="28"><use href="#logo-v"/></svg>
+    </div>
+    <div class="drawer-head-text">
+      <div class="drawer-head-name">
+        <span style="font-family:'Montserrat',sans-serif;font-weight:400">v</span><span style="font-family:'Montserrat',sans-serif;font-weight:800">Exacto</span>
+      </div>
+      <div class="drawer-head-sub">Cobros inteligentes</div>
+    </div>
+    <button class="drawer-x" onclick="cerrarDrawer()">✕</button>
+  </div>
+
+  <div class="drawer-sec">
+    <div class="drawer-sec-label">Configuración</div>
+    <button class="drawer-item" onclick="abrirConfigTasas()">
+      <div class="d-icon orange">📊</div>
+      <div class="d-text">
+        <div class="d-title">Tasas del día</div>
+        <div class="d-sub" id="drawer-tasas-sub">BCV y USD Mercado</div>
+      </div>
+      <span class="d-arrow">›</span>
+    </button>
+    <button class="drawer-item" onclick="abrirSelectorModo()">
+      <div class="d-icon blue">🛡️</div>
+      <div class="d-text">
+        <div class="d-title">Modo de cobro</div>
+        <div class="d-sub" id="drawer-modo-sub">Cobro protegido</div>
+      </div>
+      <span class="d-arrow">›</span>
+    </button>
+  </div>
+
+  <div class="drawer-div"></div>
+
+  <div class="drawer-sec">
+    <div class="drawer-sec-label">Apariencia</div>
+    <div class="d-toggle-row">
+      <div class="d-icon gray">🌙</div>
+      <div class="d-toggle-text">
+        <div class="d-toggle-title">Modo oscuro</div>
+        <div class="d-toggle-sub">Cambiar entre claro y oscuro</div>
+      </div>
+      <label class="toggle-sw">
+        <input type="checkbox" id="toggle-dark" onchange="toggleTema()">
+        <span class="toggle-track"></span>
+      </label>
+    </div>
+  </div>
+
+  <div class="drawer-div"></div>
+
+  <div class="drawer-sec">
+    <div class="drawer-sec-label">Soporte</div>
+    <button class="drawer-item" onclick="irSoporte()">
+      <div class="d-icon green">💬</div>
+      <div class="d-text">
+        <div class="d-title">Soporte por WhatsApp</div>
+        <div class="d-sub">Consultas y activaciones</div>
+      </div>
+      <span class="d-arrow">›</span>
+    </button>
+    <button class="drawer-item" onclick="mostrarAcercaDe()">
+      <div class="d-icon gray">ℹ️</div>
+      <div class="d-text">
+        <div class="d-title">Acerca de</div>
+        <div class="d-sub">Versión y licencia</div>
+      </div>
+      <span class="d-arrow">›</span>
+    </button>
+  </div>
+
+  <div class="drawer-footer">vExacto v1.0 · 2025</div>
+</div>
+
+<!-- Modal configuración (tasas + modo) -->
+<div id="modal-config" onclick="cerrarModalConfig()">
+  <div class="modal-card" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-config-title">Tasas del día</div>
+      <button class="modal-x" onclick="cerrarModalConfig()">✕</button>
+    </div>
+    <div id="modal-config-body"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     APP PRINCIPAL
+     ══════════════════════════════════════════ -->
+<div id="app-content">
+
+  <div class="header">
+    <div class="header-left">
+      <div class="ham-btn" onclick="abrirDrawer()">
+        <div class="ham-line"></div>
+        <div class="ham-line"></div>
+        <div class="ham-line"></div>
+      </div>
+      <div class="header-brand">
+        <div class="header-logo">
+          <svg width="22" height="22"><use href="#logo-v"/></svg>
+        </div>
+        <span class="header-name">
+          <span style="font-family:'Montserrat',sans-serif;font-weight:400;font-size:inherit">v</span><span style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:inherit">Exacto</span>
+        </span>
+        <span class="saved-badge" id="savedBadge">✓ guardado</span>
+      </div>
+    </div>
+    <div>
+      <div class="mode-pill protected" id="mode-pill">
+        <span class="pill-dot"></span>
+        <span id="mode-pill-txt">PROTEGIDO</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="body">
+
+    <!-- Monto de venta -->
+    <div class="card">
+      <div class="sec-label">Total venta en USD</div>
+      <input class="field-input big" type="number" id="loyverse"
+        placeholder="0.00" step="0.01" inputmode="decimal" oninput="calc()">
+      <div class="precio-bs-row">
+        <span class="pbs-label">Equivalente en Bs</span>
+        <span class="pbs-val" id="precioBs">Bs 0,00</span>
+      </div>
+    </div>
+
+    <!-- Precio protegido -->
+    <div class="precio-card">
+      <div class="precio-tag">Pago en divisas</div>
+      <div class="precio-monto" id="precioEspecial">$0.00</div>
+      <div class="precio-sub">Efectivo · USDT · Zelle · Binance</div>
+    </div>
+
+    <!-- Métodos de pago -->
+    <div class="card">
+      <div class="sec-label">Métodos de pago</div>
+      <div class="metodos-wrap" id="metodos-wrap">
+        <!-- Las filas se agregan dinámicamente -->
+      </div>
+      <button class="btn-agregar-metodo" onclick="agregarMetodo()">
+        ＋ Agregar método de pago
+      </button>
+    </div>
+
+    <!-- Resumen de cobro -->
+    <div class="resumen-card">
+      <div class="resumen-header">Resumen de cobro</div>
+      <div class="resumen-body">
+        <div class="resumen-item bs">
+          <div class="res-item-label">Por cobrar Bs</div>
+          <div class="res-item-val" id="cobrarBS">Bs 0,00</div>
+        </div>
+        <div class="resumen-item usd">
+          <div class="res-item-label">Por cobrar USD</div>
+          <div class="res-item-val" id="cobrarUSD">$0.00</div>
+        </div>
+      </div>
+      <div class="resumen-footer">
+        <span class="resumen-estado" id="resumen-estado">Ingresa el monto de venta para comenzar</span>
+      </div>
+    </div>
+
+    <!-- Nueva venta -->
+    <button class="btn-nueva" onclick="nuevaVenta()">＋ Nueva venta</button>
+
+    <p class="footer-txt">vExacto · Cobros inteligentes</p>
+  </div>
+</div>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+  }
+</script>
+<script src="./app.js"></script>
+</body>
+</html>
