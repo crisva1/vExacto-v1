@@ -61,25 +61,25 @@ const ResetDiario = {
    ════════════════════════════════════════ */
 const Licencia = {
   getID() {
-    try {
-      let id = localStorage.getItem(CONFIG.SK.DEVICE_ID);
-      if (id) return id;
-      const seed = [navigator.userAgent||'', screen.width+'x'+screen.height,
-        navigator.language||'', (navigator.hardwareConcurrency||0)+'',
-        new Date().getTimezoneOffset()+''].join('|');
-      let h = 5381;
-      for (let i = 0; i < seed.length; i++) h = (((h<<5)>>>0)+h+seed.charCodeAt(i))>>>0;
-      id = "VZ-" + h.toString(16).toUpperCase().padStart(8,'0');
-      localStorage.setItem(CONFIG.SK.DEVICE_ID, id);
-      return id;
-    } catch(e) {
-  // Fallback: genera ID desde fecha + userAgent sin localStorage
-  let h = 5381;
-  const seed = (navigator.userAgent||'x') + screen.width + screen.height;
-  for (let i = 0; i < seed.length; i++) h = (((h<<5)>>>0)+h+seed.charCodeAt(i))>>>0;
-  return "VZ-" + h.toString(16).toUpperCase().padStart(8,'0');
-}
-  },
+  try {
+    let id = localStorage.getItem(CONFIG.SK.DEVICE_ID);
+    if (id) return id;
+    const seed = [navigator.userAgent||'', screen.width+'x'+screen.height,
+      navigator.language||'', (navigator.hardwareConcurrency||0)+'',
+      new Date().getTimezoneOffset()+''].join('|');
+    let h = 5381;
+    for (let i = 0; i < seed.length; i++) h = (((h<<5)>>>0)+h+seed.charCodeAt(i))>>>0;
+    id = "VZ-" + h.toString(16).toUpperCase().padStart(8,'0');
+    localStorage.setItem(CONFIG.SK.DEVICE_ID, id);
+    return id;
+  } catch(e) {
+    // Sin localStorage: genera ID desde navegador sin guardarlo
+    let h = 5381;
+    const seed = (navigator.userAgent||'x') + screen.width + screen.height;
+    for (let i = 0; i < seed.length; i++) h = (((h<<5)>>>0)+h+seed.charCodeAt(i))>>>0;
+    return "VZ-" + h.toString(16).toUpperCase().padStart(8,'0');
+  }
+},
   genClave(id) {
     const base = id + CONFIG.SAL;
     let h = 5381;
@@ -90,9 +90,14 @@ const Licencia = {
     try { return localStorage.getItem(CONFIG.SK.LICENCIA) === 'true'; } catch(e) { return false; }
   },
   mostrarMuro() {
-    const el = document.getElementById('mi-id-display');
-    if (el) el.textContent = this.getID();
-  },
+  const el = document.getElementById('mi-id-display');
+  if (el) {
+    // Pequeño delay para que el DOM esté listo
+    setTimeout(() => {
+      el.textContent = this.getID();
+    }, 100);
+  }
+},
   pedirAcceso() {
     const n = (document.getElementById('reg-nom').value||'').trim();
     const c = (document.getElementById('reg-ci').value||'').trim();
