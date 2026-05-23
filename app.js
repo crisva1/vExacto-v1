@@ -636,6 +636,7 @@ cobrarUSD = cobrarUSD < 0.51 ? 0 : Math.max(0, cobrarUSD);
   this.calc();
   document.getElementById('loyverse').focus();
 }
+};
 
 /* ════════════════════════════════════════
    12. APP
