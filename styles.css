@@ -624,8 +624,11 @@ input[type=number].metodo-amount { -moz-appearance: textfield; }
 .resumen-col.usd .resumen-col-label { color: var(--green); opacity: 0.8; }
 .resumen-col-val {
   font-family: var(--font-num);
-  font-size: 24px; font-weight: 600;
-  line-height: 1; letter-spacing: -0.5px;
+  font-size: 18px; font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.3px;
+  word-break: break-all;
+  overflow-wrap: break-word;
 }
 .resumen-col.bs  .resumen-col-val { color: var(--blue); }
 .resumen-col.usd .resumen-col-val { color: var(--green); }

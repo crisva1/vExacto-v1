@@ -530,8 +530,12 @@ const Calculadora = {
       cobrarBS  = precioEnBs;
     }
 
-    cobrarBS  = Math.max(0, cobrarBS);
-    cobrarUSD = Math.max(0, cobrarUSD);
+    // Umbral de redondeo — montos menores a estos se ignoran visualmente
+const UMBRAL_BS  = 5;    // menos de 5 Bs no se muestra
+const UMBRAL_USD = 0.05; // menos de $0.05 no se muestra
+
+cobrarBS  = cobrarBS  < UMBRAL_BS  ? 0 : Math.max(0, cobrarBS);
+cobrarUSD = cobrarUSD < UMBRAL_USD ? 0 : Math.max(0, cobrarUSD);
 
     this.setVal('cobrarBS',  'Bs ' + this.fmt(cobrarBS));
     this.setVal('cobrarUSD', '$'   + this.redondearUSD(cobrarUSD).toFixed(2));
@@ -541,19 +545,19 @@ const Calculadora = {
   },
 
   actualizarEstado(loy, cobrarBS, cobrarUSD) {
-    const el = document.getElementById('resumen-estado');
-    if (!el) return;
-    if (loy <= 0) {
-      el.textContent = 'Ingresa el monto de venta para comenzar';
-      el.className = 'resumen-estado';
-    } else if (cobrarBS < 0.01 && cobrarUSD < 0.005) {
-      el.textContent = '✓ Cobro completo';
-      el.className = 'resumen-estado completo';
-    } else {
-      el.textContent = 'Pendiente por cobrar';
-      el.className = 'resumen-estado';
-    }
-  },
+  const el = document.getElementById('resumen-status');
+  if (!el) return;
+  if (loy <= 0) {
+    el.textContent = 'Ingresa un monto';
+    el.className = 'resumen-status vacio';
+  } else if (cobrarBS < 0.01 && cobrarUSD < 0.005) {
+    el.textContent = '✓ Cobro completo';
+    el.className = 'resumen-status completo';
+  } else {
+    el.textContent = 'Pendiente';
+    el.className = 'resumen-status pendiente';
+  }
+},
 
   nuevaVenta() {
     document.getElementById('loyverse').value = '';
