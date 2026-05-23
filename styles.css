@@ -95,7 +95,11 @@ body {
 }
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
-input[type=number] { -moz-appearance: textfield; }
+input[type=number].metodo-amount {
+  -webkit-appearance: none; appearance: none;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
 
 /* ══════════════════════════════════════
    TIPOGRAFÍA UTILITARIA
@@ -125,6 +129,7 @@ input[type=number] { -moz-appearance: textfield; }
   outline: none;
   transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
   -webkit-appearance: none;
+  appearance: none;
 }
 .field::placeholder { color: var(--text-dim); font-weight: 400; }
 .field:focus {
@@ -435,8 +440,8 @@ input[type=number] { -moz-appearance: textfield; }
   margin-bottom: 14px;
 }
 
-/* ── Sección monto ─────────────────── */
-.amount-section {}
+.── Sección monto ─────────────────── */
+.amount-section { /* contenedor para elementos relacionados con el monto */ display: flex; flex-direction: column; }
 .amount-row { display: flex; align-items: center; position: relative; }
 .amount-prefix {
   position: absolute; left: 16px;
@@ -561,13 +566,14 @@ input[type=number] { -moz-appearance: textfield; }
   font-family: var(--font-num); font-size: 16px; font-weight: 600;
   color: var(--text); text-align: right;
   -webkit-appearance: none;
+  appearance: none;
 }
 .metodo-amount::placeholder {
   color: var(--text-dim); font-weight: 400; font-size: 14px;
 }
 input[type=number].metodo-amount::-webkit-outer-spin-button,
-input[type=number].metodo-amount::-webkit-inner-spin-button { -webkit-appearance: none; }
-input[type=number].metodo-amount { -moz-appearance: textfield; }
+input[type=number].metodo-amount::-webkit-inner-spin-button { -webkit-appearance: none; appearance: none; }
+input[type=number].metodo-amount { -moz-appearance: textfield; appearance: textfield; }
 
 /* Botón eliminar — ícono basurero al inicio */
 .metodo-del {
@@ -631,11 +637,12 @@ input[type=number].metodo-amount { -moz-appearance: textfield; }
   font-family: var(--font-num); font-size: 15px; font-weight: 600;
   color: var(--text); text-align: right;
   -webkit-appearance: none;
+  appearance: none;
 }
 .metodo-amount::placeholder { color: var(--text-dim); font-weight: 400; font-size: 14px; }
 input[type=number].metodo-amount::-webkit-outer-spin-button,
-input[type=number].metodo-amount::-webkit-inner-spin-button { -webkit-appearance: none; }
-input[type=number].metodo-amount { -moz-appearance: textfield; }
+input[type=number].metodo-amount::-webkit-inner-spin-button { -webkit-appearance: none; appearance: none; }
+input[type=number].metodo-amount { -moz-appearance: textfield; appearance: textfield; }
 
 /* Botón eliminar */
 .metodo-del {
@@ -752,6 +759,8 @@ input[type=number].metodo-amount { -moz-appearance: textfield; }
   .precio-hero-amount { font-size:36px; }
   .resumen-col-val    { font-size:20px; }
   .field.amount       { font-size:24px; }
+}
+
 /* ══════════════════════════════════════
    VUELTO — Card de cambio a entregar
    ══════════════════════════════════════ */
@@ -835,6 +844,6 @@ input[type=number].metodo-amount { -moz-appearance: textfield; }
   border-color: #D97706;
   box-shadow: 0 0 0 3px rgba(217,119,6,0.15);
 }
-}
+
 
 /* Ya completo — verificado */
