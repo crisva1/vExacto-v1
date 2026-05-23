@@ -541,12 +541,9 @@ const Calculadora = {
       cobrarBS  = precioEnBs;
     }
 
-    // Umbral de redondeo — montos menores a estos se ignoran visualmente
-const UMBRAL_BS  = 5;    // menos de 5 Bs no se muestra
-const UMBRAL_USD = 0.05; // menos de $0.05 no se muestra
-
-cobrarBS  = cobrarBS  < UMBRAL_BS  ? 0 : Math.max(0, cobrarBS);
-cobrarUSD = cobrarUSD < UMBRAL_USD ? 0 : Math.max(0, cobrarUSD);
+// Umbral de redondeo — oculta sobrantes pequeños visualmente
+cobrarBS  = cobrarBS  < 10   ? 0 : Math.max(0, cobrarBS);
+cobrarUSD = cobrarUSD < 0.51 ? 0 : Math.max(0, cobrarUSD);
 
     this.setVal('cobrarBS',  'Bs ' + this.fmt(cobrarBS));
     this.setVal('cobrarUSD', '$'   + this.redondearUSD(cobrarUSD).toFixed(2));
