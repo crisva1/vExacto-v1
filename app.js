@@ -72,7 +72,13 @@ const Licencia = {
       id = "VZ-" + h.toString(16).toUpperCase().padStart(8,'0');
       localStorage.setItem(CONFIG.SK.DEVICE_ID, id);
       return id;
-    } catch(e) { return "VZ-NOLOC"; }
+    } catch(e) {
+  // Fallback: genera ID desde fecha + userAgent sin localStorage
+  let h = 5381;
+  const seed = (navigator.userAgent||'x') + screen.width + screen.height;
+  for (let i = 0; i < seed.length; i++) h = (((h<<5)>>>0)+h+seed.charCodeAt(i))>>>0;
+  return "VZ-" + h.toString(16).toUpperCase().padStart(8,'0');
+}
   },
   genClave(id) {
     const base = id + CONFIG.SAL;
