@@ -397,7 +397,7 @@ const Metodos = {
       <input class="metodo-monto" type="number" id="monto-${id}"
         placeholder="0.00" inputmode="decimal" step="0.01"
         oninput="Calculadora.calc()">
-      <button class="metodo-del" onclick="Metodos.eliminar(${id})" title="Eliminar">✕</button>
+      <button class="metodo-del" onclick="Metodos.eliminar(${id})" title="Eliminar">🗑</button>
     `;
     wrap.appendChild(fila);
 
@@ -544,28 +544,90 @@ cobrarUSD = cobrarUSD < UMBRAL_USD ? 0 : Math.max(0, cobrarUSD);
     this.actualizarEstado(loy, cobrarBS, cobrarUSD);
   },
 
-  actualizarEstado(loy, cobrarBS, cobrarUSD) {
-  const el = document.getElementById('resumen-status');
-  if (!el) return;
+ actualizarEstado(loy, cobrarBS, cobrarUSD) {
+  const statusEl  = document.getElementById('resumen-status');
+  const vueltoSec = document.getElementById('vuelto-section');
+  const vueltoAmt = document.getElementById('vuelto-amount');
+
+  if (!statusEl) return;
+
+  // Sin monto ingresado
   if (loy <= 0) {
-    el.textContent = 'Ingresa un monto';
-    el.className = 'resumen-status vacio';
-  } else if (cobrarBS < 0.01 && cobrarUSD < 0.005) {
-    el.textContent = '✓ Cobro completo';
-    el.className = 'resumen-status completo';
+    statusEl.textContent = 'Ingresa un monto';
+    statusEl.className   = 'resumen-status vacio';
+    if (vueltoSec) vueltoSec.style.display = 'none';
+    return;
+  }
+
+  // Calcular vuelto en Bs usando tasa BCV
+  // Los centavos de dólar sobrantes se convierten a Bs con tasa BCV
+  const bcv = parseFloat(localStorage.getItem(CONFIG.SK.BCV)) || CONFIG.DEFAULT_BCV;
+
+  // cobrarUSD negativo = cliente pagó de más en USD → convertir a Bs de vuelto
+  // cobrarBS negativo  = cliente pagó de más en Bs → vuelto directo en Bs
+  const { abonoBS, abonoUSD } = Metodos.getAbonos();
+
+  // Recalcular sobrante real sin umbrales
+  const tasaEfectiva = ModoSelector.modoActual === 'protected'
+    ? (bcv > 0 ? (parseFloat(localStorage.getItem(CONFIG.SK.MERCADO)) || CONFIG.DEFAULT_MERCADO) / bcv : 1)
+    : 1;
+
+  let vueltoBS = 0;
+
+  // Si cobrarBS es negativo hay vuelto directo en Bs
+  if (cobrarBS === 0 && cobrarUSD === 0) {
+    // Recalcular sin umbral para detectar sobrante real
+    let rawCobrarUSD = 0;
+    let rawCobrarBS  = 0;
+
+    if (abonoBS > 0 && abonoUSD === 0) {
+      rawCobrarUSD = (loy - (abonoBS / bcv)) / tasaEfectiva;
+    } else if (abonoUSD > 0 && abonoBS === 0) {
+      rawCobrarBS = (loy - (abonoUSD * tasaEfectiva)) * bcv;
+    } else if (abonoBS > 0 && abonoUSD > 0) {
+      rawCobrarUSD = ((loy - (abonoBS / bcv)) / tasaEfectiva) - abonoUSD;
+      if (rawCobrarUSD < 0) {
+        rawCobrarBS  = Math.abs(rawCobrarUSD) * bcv;
+        rawCobrarUSD = 0;
+      }
+    }
+
+    // Sobrante en USD (por redondeo) → convertir a Bs con tasa BCV
+    if (rawCobrarUSD < 0) {
+      vueltoBS = Math.abs(rawCobrarUSD) * bcv;
+    }
+    // Sobrante en Bs
+    if (rawCobrarBS < 0) {
+      vueltoBS = Math.abs(rawCobrarBS);
+    }
+  }
+
+  // Mostrar vuelto si hay sobrante
+  if (vueltoBS > 0.5) {
+    if (vueltoSec) vueltoSec.style.display = 'block';
+    if (vueltoAmt) vueltoAmt.textContent = 'Bs ' + this.fmt(vueltoBS);
+    statusEl.textContent = '✓ Cobro completo';
+    statusEl.className   = 'resumen-status completo';
   } else {
-    el.textContent = 'Pendiente';
-    el.className = 'resumen-status pendiente';
+    if (vueltoSec) vueltoSec.style.display = 'none';
+    if (cobrarBS < 0.01 && cobrarUSD < 0.005) {
+      statusEl.textContent = '✓ Cobro completo';
+      statusEl.className   = 'resumen-status completo';
+    } else {
+      statusEl.textContent = 'Pendiente';
+      statusEl.className   = 'resumen-status pendiente';
+    }
   }
 },
 
-  nuevaVenta() {
-    document.getElementById('loyverse').value = '';
-    Metodos.limpiar();
-    this.calc();
-    document.getElementById('loyverse').focus();
-  }
-};
+ nuevaVenta() {
+  document.getElementById('loyverse').value = '';
+  const vs = document.getElementById('vuelto-section');
+  if (vs) vs.style.display = 'none';  // ← agrega esta línea
+  Metodos.limpiar();
+  this.calc();
+  document.getElementById('loyverse').focus();
+}
 
 /* ════════════════════════════════════════
    12. APP
@@ -631,3 +693,11 @@ function _arrancar() {
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _arrancar);
 else _arrancar();
 window.addEventListener('load', _arrancar);
+
+// Auto-actualización del Service Worker
+// Cuando hay nueva versión en GitHub, se activa sola sin que el usuario haga nada
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    window.location.reload();
+  });
+}
