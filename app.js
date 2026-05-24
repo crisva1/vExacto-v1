@@ -598,14 +598,14 @@ actualizarEstado(loy, cobrarBS, cobrarUSD, bcv, mercado, abonoBS, abonoUSD, vuel
     if (vueltoTotalEnUSD > 0.009) {
         if (vueltoSec) vueltoSec.style.display = 'block';
 
-        var vueltoUSD = Math.floor(vueltoTotalEnUSD); // Billetes de $1, $5 enteros
-        var centavosUSD = vueltoTotalEnUSD - vueltoUSD; // Fracción decimal sobrante
-        var vueltoBS = centavosUSD * bcv; // Los centavos se devuelven en Bs a tasa BCV
+var vueltoUSD = Math.floor(vueltoTotalEnUSD); // Billetes de $1, $5 enteros
+var centavosUSD = vueltoTotalEnUSD - vueltoUSD; // Fracción decimal sobrante
+var vueltoBS = parseFloat((centavosUSD * bcv).toFixed(2)); // <--- CORREGIDO A 2 DECIMALES
+
 
         var hayVueltoUSD = vueltoUSD >= 1;
         var hayVueltoBS = vueltoBS > 0.05;
 
-        // Mostrar u ocultar selectores en la tarjeta según lo que corresponda entregar
         if (optVueltoUSD) optVueltoUSD.style.display = hayVueltoUSD ? 'block' : 'none';
         if (optVueltoBS) optVueltoBS.style.display = hayVueltoBS ? 'block' : 'none';
 
