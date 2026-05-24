@@ -549,7 +549,7 @@ cobrarUSD = cobrarUSD < 0.51 ? 0 : Math.max(0, cobrarUSD);
     this.setVal('cobrarUSD', '$'   + this.redondearUSD(cobrarUSD).toFixed(2));
 
     // Actualizar estado del resumen
-    this.actualizarEstado(loy, cobrarBS, cobrarUSD);
+    this.actualizarEstado(loy, cobrarBS, cobrarUSD, bcv, tasaEfectiva, abonoBS, abonoUSD);
   },
 
 actualizarEstado(loy, cobrarBS, cobrarUSD, bcv, tasaEfectiva, abonoBS, abonoUSD) {
@@ -566,16 +566,14 @@ actualizarEstado(loy, cobrarBS, cobrarUSD, bcv, tasaEfectiva, abonoBS, abonoUSD)
         return;
     }
 
-    // 1. CONVERTIR TODO LO QUE EL CLIENTE PAGÓ A DÓLARES (Moneda Base)
-    // Los Bolívares se llevan a dólares usando la tasa BCV del sistema
+    // 1. Convertimos todo lo pagado a Dólares
     var abonoBSenUSD = abonoBS > 0 ? (abonoBS / bcv) : 0;
     var totalPagadoEnUSD = abonoUSD + abonoBSenUSD;
 
-    // 2. CALCULAR EL VUELTO TOTAL EN DÓLARES
-    // Si el total pagado es mayor que la deuda (loy), hay vuelto.
+    // 2. Calculamos la diferencia total en Dólares
     var vueltoTotalEnUSD = totalPagadoEnUSD - loy;
 
-    // Si no ha pagado nada o no cubre la deuda
+    // Si no han pagado nada
     if (abonoBS === 0 && abonoUSD === 0) {
         if (vueltoSec) vueltoSec.style.display = 'none';
         statusEl.textContent = 'Pendiente';
@@ -586,16 +584,16 @@ actualizarEstado(loy, cobrarBS, cobrarUSD, bcv, tasaEfectiva, abonoBS, abonoUSD)
     var vueltoUSD = 0;
     var vueltoBS = 0;
 
-    // 3. DESGLOSAR EL VUELTO (Billetes en USD y centavos en Bs)
-    if (vueltoTotalEnUSD > 0.005) { // Evita errores por decimales flotantes
-        vueltoUSD = Math.floor(vueltoTotalEnUSD); // Billetes enteros de $1, $5, etc.
-        var centavosUSD = vueltoTotalEnUSD - vueltoUSD; // Los centavos que quedan sueltos
-        vueltoBS = centavosUSD * bcv; // Esos centavos se multiplican por la tasa BCV
+    // 3. Si hay vuelto real, separamos billetes de dólares y centavos a Bolívares
+    if (vueltoTotalEnUSD > 0.005) {
+        vueltoUSD = Math.floor(vueltoTotalEnUSD); // Billetes de $1, $5...
+        var centavosUSD = vueltoTotalEnUSD - vueltoUSD; // El decimal sobrante
+        vueltoBS = centavosUSD * bcv; // Convertido a Bolívares por la tasa BCV
     }
 
-    // Evaluar si el vuelto es significativo para mostrarse
+    // ¿El vuelto es lo suficientemente grande como para mostrarlo?
     var hayVueltoUSD = vueltoUSD >= 1;
-    var hayVueltoBS = vueltoBS > 0.10; // Más de 10 céntimos de Bolívar
+    var hayVueltoBS = vueltoBS > 0.05;
 
     if (hayVueltoUSD || hayVueltoBS) {
         if (vueltoSec) vueltoSec.style.display = 'block';
@@ -624,6 +622,7 @@ actualizarEstado(loy, cobrarBS, cobrarUSD, bcv, tasaEfectiva, abonoBS, abonoUSD)
         statusEl.className = 'resumen-status pendiente';
     }
 },
+
 
  nuevaVenta() {
   document.getElementById('loyverse').value = '';
