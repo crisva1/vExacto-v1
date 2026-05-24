@@ -509,52 +509,47 @@ calc() {
     
     var abonos = Metodos.getAbonos();
     var abonoBS = abonos.abonoBS;   // Ejemplo: 5000 Bs
-    var abonoUSD = abonos.abonoUSD; // Ejemplo: El billete de $20 que entrega
+    var abonoUSD = abonos.abonoUSD; // Ejemplo: El billete que entrega
     
     var factor = bcv > 0 ? mercado / bcv : 1;
     var tasaEfectiva = ModoSelector.modoActual === 'protected' ? factor : 1;
     
-    // 1. EL PRECIO TOTAL EN BOLÍVARES (Siempre a tasa BCV)
-    var precioEnBs = loy * bcv; 
-    
-    // 2. EL PRECIO INFLADO EN DÓLARES (Solo si pagara TODO en dólares con brecha, para proteger)
-    var especial = tasaEfectiva > 0 ? loy / tasaEfectiva : 0; 
+    // 1. PRECIOS INICIALES DE REFERENCIA
+    var precioEnBs = loy * bcv; // Ejemplo: $20 * 530 = 10,600 Bs (SI O SI FIJO)
+    var especial = tasaEfectiva > 0 ? loy / tasaEfectiva : 0; // Precio inflado en $
     
     Calculadora.setVal('precioBs', 'Bs ' + Calculadora.fmt(precioEnBs));
     Calculadora.setVal('precioEspecial', '$' + especial.toFixed(2));
 
-    // 3. MATEMÁTICA DEL COBRO MIXTO (Deducir Bolívares primero)
-    var deudaRestanteEnBs = precioEnBs - abonoBS; // 10600 - 5000 = 5600 Bs
-    
-    // El saldo restante en dólares se calcula dividiendo los Bs entre la tasa de MERCADO
-    // para eliminar la brecha, ya que el cliente está pagando con divisas reales.
-    var saldoRealPorCobrarUSD = deudaRestanteEnBs > 0 ? (deudaRestanteEnBs / mercado) : 0;
-    var saldoRealPorCobrarBS = deudaRestanteEnBs > 0 ? deudaRestanteEnBs : 0;
+    // 2. MATEMÁTICA ESTRICTA PARA "POR COBRAR BOLÍVARES" (PROTECCIÓN DE CAJA)
+    // A la deuda total en Bs le quitamos lo que pagó en Bs y lo que pagó en dólares (valorados a tasa mercado)
+    var abonoUSDenBsMercado = abonoUSD * mercado;
+    var cobrarBS = precioEnBs - abonoBS - abonoUSDenBsMercado;
+    cobrarBS = Math.max(0, cobrarBS); // Evita números negativos en pantalla
 
-    // 4. CÁLCULO DEL VUELTO REAL
-    // Si el abono en dólares del cliente supera el saldo real que le quedaba por pagar en dólares
+    // 3. MATEMÁTICA ESTRICTA PARA "POR COBRAR DÓLARES" (PAGO EN DIVISAS SIN BRECHA)
+    var deudaRestanteEnBs = precioEnBs - abonoBS; 
+    var saldoRealPorCobrarUSD = deudaRestanteEnBs > 0 ? (deudaRestanteEnBs / mercado) : 0;
+
+    var cobrarUSD = 0;
     var vueltoTotalEnUSD = 0;
+
     if (abonoUSD > saldoRealPorCobrarUSD) {
         vueltoTotalEnUSD = abonoUSD - saldoRealPorCobrarUSD;
+        cobrarUSD = 0;
+    } else {
+        vueltoTotalEnUSD = 0;
+        cobrarUSD = saldoRealPorCobrarUSD - abonoUSD;
     }
 
-    // Definir las variables finales para la pantalla
-    var cobrarUSD = 0;
-    var cobrarBS = 0;
-
-    if (vueltoTotalEnUSD === 0) {
-        // Si no hay vuelto, lo que queda por cobrar es el saldo real menos lo que haya puesto en USD
-        cobrarUSD = Math.max(0, saldoRealPorCobrarUSD - abonoUSD);
-        cobrarBS = cobrarUSD * bcv; // Pantalla muestra el equivalente BCV restante
-    }
-
-    // 5. ENVIAR DATOS LIMPIOS A LA INTERFAZ
+    // 4. ENVIAR DATOS A LA INTERFAZ VISUAL
     Calculadora.actualizarEstado(loy, cobrarBS, cobrarUSD, bcv, mercado, abonoBS, abonoUSD, vueltoTotalEnUSD);
 
-    // Mostrar en los campos de "Por Cobrar"
+    // Mostrar en los campos de "Por Cobrar" de tu HTML
     Calculadora.setVal('cobrarBS', Calculadora.fmt(cobrarBS));
     Calculadora.setVal('cobrarUSD', cobrarUSD.toFixed(2));
 },
+
 
 actualizarEstado(loy, cobrarBS, cobrarUSD, bcv, mercado, abonoBS, abonoUSD, vueltoTotalEnUSD) {
     var statusEl = document.getElementById('resumen-status');
