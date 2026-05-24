@@ -552,81 +552,94 @@ cobrarUSD = cobrarUSD < 0.51 ? 0 : Math.max(0, cobrarUSD);
     this.actualizarEstado(loy, cobrarBS, cobrarUSD);
   },
 
- actualizarEstado(loy, cobrarBS, cobrarUSD) {
-  const statusEl  = document.getElementById('resumen-status');
-  const vueltoSec = document.getElementById('vuelto-section');
-  const vueltoAmt = document.getElementById('vuelto-amount');
+actualizarEstado(loy, cobrarBS, cobrarUSD, bcv, tasaEfectiva, abonoBS, abonoUSD) {
+    var statusEl  = document.getElementById('resumen-status');
+    var vueltoSec = document.getElementById('vuelto-section');
+    var vueltoAmt = document.getElementById('vuelto-amount');
 
-  if (!statusEl) return;
+    if (!statusEl) return;
 
-  // Sin monto ingresado
-  if (loy <= 0) {
-    statusEl.textContent = 'Ingresa un monto';
-    statusEl.className   = 'resumen-status vacio';
-    if (vueltoSec) vueltoSec.style.display = 'none';
-    return;
-  }
+    if (loy <= 0) {
+      statusEl.textContent = 'Ingresa un monto';
+      statusEl.className   = 'resumen-status vacio';
+      if (vueltoSec) vueltoSec.style.display = 'none';
+      return;
+    }
 
-  // Calcular vuelto en Bs usando tasa BCV
-  // Los centavos de dólar sobrantes se convierten a Bs con tasa BCV
-  const bcv = parseFloat(localStorage.getItem(CONFIG.SK.BCV)) || CONFIG.DEFAULT_BCV;
-
-  // cobrarUSD negativo = cliente pagó de más en USD → convertir a Bs de vuelto
-  // cobrarBS negativo  = cliente pagó de más en Bs → vuelto directo en Bs
-  const { abonoBS, abonoUSD } = Metodos.getAbonos();
-
-  // Recalcular sobrante real sin umbrales
-  const tasaEfectiva = ModoSelector.modoActual === 'protected'
-    ? (bcv > 0 ? (parseFloat(localStorage.getItem(CONFIG.SK.MERCADO)) || CONFIG.DEFAULT_MERCADO) / bcv : 1)
-    : 1;
-
-  let vueltoBS = 0;
-
-  // Si cobrarBS es negativo hay vuelto directo en Bs
-  if (cobrarBS === 0 && cobrarUSD === 0) {
-    // Recalcular sin umbral para detectar sobrante real
-    let rawCobrarUSD = 0;
-    let rawCobrarBS  = 0;
+    // Recalcular sobrante REAL sin umbrales
+    var rawUSD = 0;
+    var rawBS  = 0;
 
     if (abonoBS > 0 && abonoUSD === 0) {
-      rawCobrarUSD = (loy - (abonoBS / bcv)) / tasaEfectiva;
+      rawUSD = (loy - (abonoBS / bcv)) / tasaEfectiva;
     } else if (abonoUSD > 0 && abonoBS === 0) {
-      rawCobrarBS = (loy - (abonoUSD * tasaEfectiva)) * bcv;
+      rawBS = (loy - (abonoUSD * tasaEfectiva)) * bcv;
     } else if (abonoBS > 0 && abonoUSD > 0) {
-      rawCobrarUSD = ((loy - (abonoBS / bcv)) / tasaEfectiva) - abonoUSD;
-      if (rawCobrarUSD < 0) {
-        rawCobrarBS  = Math.abs(rawCobrarUSD) * bcv;
-        rawCobrarUSD = 0;
+      rawUSD = ((loy - (abonoBS / bcv)) / tasaEfectiva) - abonoUSD;
+      if (rawUSD < 0) {
+        rawBS  = Math.abs(rawUSD) * bcv;
+        rawUSD = 0;
       }
+    } else {
+      // Sin abonos — no hay vuelto
+      if (vueltoSec) vueltoSec.style.display = 'none';
+      statusEl.textContent = 'Pendiente';
+      statusEl.className   = 'resumen-status pendiente';
+      return;
     }
 
-    // Sobrante en USD (por redondeo) → convertir a Bs con tasa BCV
-    if (rawCobrarUSD < 0) {
-      vueltoBS = Math.abs(rawCobrarUSD) * bcv;
-    }
-    // Sobrante en Bs
-    if (rawCobrarBS < 0) {
-      vueltoBS = Math.abs(rawCobrarBS);
-    }
-  }
+    // Calcular vuelto
+    // rawUSD negativo = cliente pagó de más en USD
+    // rawBS  negativo = cliente pagó de más en Bs
+    var vueltoUSD = 0;
+    var vueltoBS  = 0;
 
-  // Mostrar vuelto si hay sobrante
-  if (vueltoBS > 0.5) {
-    if (vueltoSec) vueltoSec.style.display = 'block';
-    if (vueltoAmt) vueltoAmt.textContent = 'Bs ' + this.fmt(vueltoBS);
-    statusEl.textContent = '✓ Cobro completo';
-    statusEl.className   = 'resumen-status completo';
-  } else {
-    if (vueltoSec) vueltoSec.style.display = 'none';
-    if (cobrarBS < 0.01 && cobrarUSD < 0.005) {
+    if (rawUSD < 0) {
+      // Sobrante en USD — separar billetes enteros y centavos
+      var sobrante  = Math.abs(rawUSD);
+      vueltoUSD     = Math.floor(sobrante);         // billetes enteros en USD
+      var centavos  = sobrante - vueltoUSD;         // fracción decimal
+      vueltoBS      = centavos * bcv;               // centavos → Bs × BCV
+    }
+
+    if (rawBS < 0) {
+      vueltoBS = vueltoBS + Math.abs(rawBS);        // sumar sobrante en Bs
+    }
+
+    // ¿Hay vuelto real?
+    var hayVueltoUSD = vueltoUSD >= 1;
+    var hayVueltoBS  = vueltoBS  > 0.5;
+
+    if (hayVueltoUSD || hayVueltoBS) {
+      if (vueltoSec) vueltoSec.style.display = 'block';
+
+      // Construir texto del vuelto
+      var lineas = '';
+      if (hayVueltoUSD) {
+        lineas += '<div class="vuelto-linea usd">USD <span>$' + vueltoUSD.toFixed(2) + '</span></div>';
+      }
+      if (hayVueltoUSD && hayVueltoBS) {
+        lineas += '<div class="vuelto-mas">+</div>';
+      }
+      if (hayVueltoBS) {
+        lineas += '<div class="vuelto-linea bs">Bs <span>' + Calculadora.fmt(vueltoBS) + '</span></div>';
+      }
+
+      if (vueltoAmt) vueltoAmt.innerHTML = lineas;
+
+      statusEl.textContent = '↩ Dar vuelto';
+      statusEl.className   = 'resumen-status vuelto';
+
+    } else if (cobrarBS < 0.01 && cobrarUSD < 0.005) {
+      if (vueltoSec) vueltoSec.style.display = 'none';
       statusEl.textContent = '✓ Cobro completo';
       statusEl.className   = 'resumen-status completo';
     } else {
+      if (vueltoSec) vueltoSec.style.display = 'none';
       statusEl.textContent = 'Pendiente';
       statusEl.className   = 'resumen-status pendiente';
     }
-  }
-},
+  },
 
  nuevaVenta() {
   document.getElementById('loyverse').value = '';
