@@ -541,15 +541,19 @@ const Calculadora = {
       cobrarBS  = precioEnBs;
     }
 
-// Umbral de redondeo — oculta sobrantes pequeños visualmente
-cobrarBS  = cobrarBS  < 10   ? 0 : Math.max(0, cobrarBS);
-cobrarUSD = cobrarUSD < 0.51 ? 0 : Math.max(0, cobrarUSD);
+   // Guardar valores reales sin redondear para calcular vuelto
+    var cobrarBSreal  = cobrarBS;
+    var cobrarUSDreal = cobrarUSD;
 
-    this.setVal('cobrarBS',  'Bs ' + this.fmt(cobrarBS));
-    this.setVal('cobrarUSD', '$'   + this.redondearUSD(cobrarUSD).toFixed(2));
+    // Umbral visual — oculta sobrantes pequeños en las casillas
+    cobrarBS  = cobrarBS  < 50   ? 0 : cobrarBS;
+    cobrarUSD = cobrarUSD < 0.51 ? 0 : cobrarUSD;
 
-    // Actualizar estado del resumen
-    this.actualizarEstado(loy, cobrarBS, cobrarUSD, bcv, tasaEfectiva, abonoBS, abonoUSD);
+    Calculadora.setVal('cobrarBS',  Calculadora.fmt(Math.max(0, cobrarBS)));
+    Calculadora.setVal('cobrarUSD', Calculadora.redondearUSD(Math.max(0, cobrarUSD)).toFixed(2));
+
+    // Pasar valores REALES sin umbral para que el vuelto sea correcto
+    this.actualizarEstado(loy, cobrarBSreal, cobrarUSDreal, bcv, tasaEfectiva, abonoBS, abonoUSD);
   },
 
 actualizarEstado(loy, cobrarBS, cobrarUSD, bcv, tasaEfectiva, abonoBS, abonoUSD) {

@@ -1,6 +1,6 @@
 // 🔄 ACTUALIZAR ESTE NÚMERO CADA VEZ QUE HAGAS CAMBIOS
 // Formato: vexacto-v1-AAAAMMDD-1 (ejemplo: vexacto-v1-20260523-1)
-const CACHE_NAME = 'vexacto-v1-20260523-3';
+const CACHE_NAME = 'vexacto-v1-20260524-1';
 const urlsToCache = ['./', './index.html', './styles.css', './app.js', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
