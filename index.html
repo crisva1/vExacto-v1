@@ -296,23 +296,42 @@
         </div>
       </div>
     </div>
-<!-- Vuelto -->
-    <div class="vuelto-card" id="vuelto-section" style="display:none">
-      <div class="vuelto-header">
-        <span class="vuelto-icon">↩</span>
-        <span class="vuelto-title">Vuelto a entregar</span>
-        <span class="vuelto-amount" id="vuelto-amount">Bs 0,00</span>
-      </div>
-      <div class="vuelto-body">
-        <div class="vuelto-label">¿Cómo entregas el vuelto?</div>
-        <select class="vuelto-select" id="vuelto-metodo">
-          <option value="pago_movil">📱 Pago móvil</option>
-          <option value="transferencia">🏦 Transferencia</option>
-          <option value="efectivo_bs">💵 Efectivo Bs</option>
-        </select>
-      </div>
-    </div>
-    <!-- Nueva venta -->
+        <!-- Vuelto -->
+        <div class="vuelto-card" id="vuelto-section" style="display:none">
+            <div class="vuelto-header">
+                <span class="vuelto-icon">↩</span>
+                <span class="vuelto-title">Vuelto a entregar</span>
+                <div id="vuelto-amount" style="font-weight: bold; margin-top: 5px;"></div>
+            </div>
+            <div class="vuelto-body">
+                <!-- Selector dinámico para USD -->
+                <div id="vuelto-opcion-usd" style="display: none; margin-bottom: 12px;">
+                    <div class="vuelto-label" style="font-size: 12px; margin-bottom: 4px; color: #aaa;">¿Cómo entregas el vuelto en USD?</div>
+                    <select class="vuelto-select" id="vuelto-medio-usd" style="width:100%; padding:8px; border-radius:6px; background:#222; color:#fff; border:1px solid #444;">
+                        <option value="efectivo_usd">💵 Efectivo USD</option>
+                        <option value="zelle">🟪 Zelle</option>
+                        <option value="binance">🟨 Binance</option>
+                    </select>
+                </div>
+                
+                <!-- Selector dinámico para Bs -->
+                <div id="vuelto-opcion-bs" style="display: none; margin-bottom: 12px;">
+                    <div class="vuelto-label" style="font-size: 12px; margin-bottom: 4px; color: #aaa;">¿Cómo entregas el vuelto en Bs?</div>
+                    <select class="vuelto-select" id="vuelto-medio-bs" style="width:100%; padding:8px; border-radius:6px; background:#222; color:#fff; border:1px solid #444;">
+                        <option value="pago_movil">📱 Pago móvil</option>
+                        <option value="efectivo_bs">💵 Efectivo Bs</option>
+                        <option value="transferencia">🏦 Transferencia</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Botón Procesar Cobro Inteligente -->
+        <button id="btn-cerrar-venta" disabled onclick="Calculadora.procesarCierreVenta()" style="width: 100%; margin-top: 15px; margin-bottom: 10px; padding: 14px; font-weight: bold; font-size: 15px; border-radius: 8px; border: none; background-color: #333; color: #777; cursor: not-allowed; transition: all 0.2s ease;">
+            Procesar Cobro
+        </button>
+
+        <!-- Nueva venta -->
     <button class="btn-nueva" onclick="nuevaVenta()">+ Nueva venta</button>
 
     <p class="footer-txt">vExacto · Cobros inteligentes</p>

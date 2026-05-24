@@ -555,6 +555,11 @@ actualizarEstado(loy, cobrarBS, cobrarUSD, bcv, mercado, abonoBS, abonoUSD, vuel
     var statusEl = document.getElementById('resumen-status');
     var vueltoSec = document.getElementById('vuelto-section');
     var vueltoAmt = document.getElementById('vuelto-amount');
+    
+    // Traer los nuevos elementos del botón y los selectores ocultos
+    var btnCerrar = document.getElementById('btn-cerrar-venta');
+    var optVueltoUSD = document.getElementById('vuelto-opcion-usd');
+    var optVueltoBS = document.getElementById('vuelto-opcion-bs');
 
     if (!statusEl) return;
 
@@ -562,14 +567,30 @@ actualizarEstado(loy, cobrarBS, cobrarUSD, bcv, mercado, abonoBS, abonoUSD, vuel
         statusEl.textContent = 'Ingresa un monto';
         statusEl.className = 'resumen-status vacio';
         if (vueltoSec) vueltoSec.style.display = 'none';
+        if (btnCerrar) {
+            btnCerrar.disabled = true;
+            btnCerrar.style.backgroundColor = '#333';
+            btnCerrar.style.color = '#777';
+            btnCerrar.style.cursor = 'not-allowed';
+        }
         return;
     }
 
     // Si no se ha registrado ningún pago todavía
     if (abonoBS === 0 && abonoUSD === 0) {
         if (vueltoSec) vueltoSec.style.display = 'none';
+        if (optVueltoUSD) optVueltoUSD.style.display = 'none';
+        if (optVueltoBS) optVueltoBS.style.display = 'none';
+        
         statusEl.textContent = 'Pendiente';
         statusEl.className = 'resumen-status pendiente';
+        
+        if (btnCerrar) {
+            btnCerrar.disabled = true;
+            btnCerrar.style.backgroundColor = '#333';
+            btnCerrar.style.color = '#777';
+            btnCerrar.style.cursor = 'not-allowed';
+        }
         return;
     }
 
@@ -583,6 +604,10 @@ actualizarEstado(loy, cobrarBS, cobrarUSD, bcv, mercado, abonoBS, abonoUSD, vuel
 
         var hayVueltoUSD = vueltoUSD >= 1;
         var hayVueltoBS = vueltoBS > 0.05;
+
+        // Mostrar u ocultar selectores en la tarjeta según lo que corresponda entregar
+        if (optVueltoUSD) optVueltoUSD.style.display = hayVueltoUSD ? 'block' : 'none';
+        if (optVueltoBS) optVueltoBS.style.display = hayVueltoBS ? 'block' : 'none';
 
         var lineas = '';
         if (hayVueltoUSD) {
@@ -598,20 +623,117 @@ actualizarEstado(loy, cobrarBS, cobrarUSD, bcv, mercado, abonoBS, abonoUSD, vuel
         if (vueltoAmt) vueltoAmt.innerHTML = lineas;
         statusEl.textContent = '↩ Dar vuelto';
         statusEl.className = 'resumen-status vuelto';
+
+        // Habilitar botón de cierre en COLOR VERDE para dar vuelto
+        if (btnCerrar) {
+            btnCerrar.disabled = false;
+            btnCerrar.style.backgroundColor = '#28a745'; 
+            btnCerrar.style.color = '#fff';
+            btnCerrar.style.cursor = 'pointer';
+        }
     } 
     // Si la deuda ya se cubrió por completo sin dejar vueltos significativos
     else if (cobrarBS < 0.1 && cobrarUSD < 0.01) {
         if (vueltoSec) vueltoSec.style.display = 'none';
+        if (optVueltoUSD) optVueltoUSD.style.display = 'none';
+        if (optVueltoBS) optVueltoBS.style.display = 'none';
+        
         statusEl.textContent = '✓ Cobro completo';
         statusEl.className = 'resumen-status completo';
+
+        // Habilitar botón de cierre en COLOR AZUL para cobro exacto
+        if (btnCerrar) {
+            btnCerrar.disabled = false;
+            btnCerrar.style.backgroundColor = '#007bff'; 
+            btnCerrar.style.color = '#fff';
+            btnCerrar.style.cursor = 'pointer';
+        }
     } 
     // Si todavía queda dinero pendiente por abonar
     else {
         if (vueltoSec) vueltoSec.style.display = 'none';
+        if (optVueltoUSD) optVueltoUSD.style.display = 'none';
+        if (optVueltoBS) optVueltoBS.style.display = 'none';
+
         statusEl.textContent = 'Pendiente';
         statusEl.className = 'resumen-status pendiente';
+
+        // Bloquear botón si el cobro sigue incompleto
+        if (btnCerrar) {
+            btnCerrar.disabled = true;
+            btnCerrar.style.backgroundColor = '#333';
+            btnCerrar.style.color = '#777';
+            btnCerrar.style.cursor = 'not-allowed';
+        }
     }
 },
+procesarCierreVenta() {
+    var bcv = parseFloat(localStorage.getItem(CONFIG.SK.BCV)) || CONFIG.DEFAULT_BCV;
+    var mercado = parseFloat(localStorage.getItem(CONFIG.SK.MERCADO)) || CONFIG.DEFAULT_MERCADO;
+    var loyEl = document.getElementById('loyverse');
+    var loy = loyEl ? (parseFloat(loyEl.value) || 0) : 0;
+
+    var abonos = Metodos.getAbonos();
+    
+    // 1. Recalcular el vuelto exacto obtenido en la última operación
+    var abonoBSenUSD = abonos.abonoBS > 0 ? (abonos.abonoBS / bcv) : 0;
+    var totalPagadoEnUSD = abonos.abonoUSD + abonoBSenUSD;
+    var vueltoTotalEnUSD = Math.max(0, totalPagadoEnUSD - loy);
+
+    var vueltoUSD = 0;
+    var vueltoBS = 0;
+    var medioVueltoUSD = "ninguno";
+    var medioVueltoBS = "ninguno";
+
+    // 2. Si hubo vuelto, identificar los montos y los métodos de egreso elegidos
+    if (vueltoTotalEnUSD > 0.009) {
+        vueltoUSD = Math.floor(vueltoTotalEnUSD);
+        var centavosUSD = vueltoTotalEnUSD - vueltoUSD;
+        vueltoBS = centavosUSD * bcv;
+
+        if (vueltoUSD >= 1) {
+            medioVueltoUSD = document.getElementById('vuelto-medio-usd').value;
+        }
+        if (vueltoBS > 0.05) {
+            medioVueltoBS = document.getElementById('vuelto-medio-bs').value;
+        }
+    }
+
+    // 3. Crear la estructura del reporte de la venta para auditoría posterior
+    var nuevaVentaLog = {
+        id: "V-" + Date.now(), // ID único autogenerado
+        fecha: new Date().toLocaleString('es-VE', { timeZone: 'America/Caracas' }), // Hora oficial de Venezuela
+        montoFacturadoUSD: loy,
+        tasaBCV: bcv,
+        tasaMercado: mercado,
+        ingresos: {
+            efectivoUSD: abonos.abonoUSD,
+            bolivares: abonos.abonosBS || abonos.abonoBS // Asegura compatibilidad con tu objeto de abonos
+        },
+        vueltos: {
+            montoUSD: vueltoUSD,
+            medioUSD: medioVueltoUSD,
+            montoBS: vueltoBS,
+            medioBS: medioVueltoBS
+        }
+    };
+
+    // 4. Guardar localmente en el navegador (localStorage) sin afectar el resto de la app
+    var historial = JSON.parse(localStorage.getItem('vexacto_historial')) || [];
+    historial.push(nuevaVentaLog);
+    localStorage.setItem('vexacto_historial', JSON.stringify(historial));
+
+    // 5. Alerta de confirmación al usuario
+    alert("¡Cobro procesado con éxito y registrado en el historial!");
+    
+    // 6. Limpiar la interfaz llamando a tu método nativo de borrado rápido
+    if (typeof this.nuevaVenta === 'function') {
+        this.nuevaVenta();
+    } else if (typeof Calculadora.nuevaVenta === 'function') {
+        Calculadora.nuevaVenta();
+    }
+},
+
 
  nuevaVenta() {
   document.getElementById('loyverse').value = '';
