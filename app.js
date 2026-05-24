@@ -505,46 +505,58 @@ calc() {
     var bcv = parseFloat(localStorage.getItem(CONFIG.SK.BCV)) || CONFIG.DEFAULT_BCV;
     var mercado = parseFloat(localStorage.getItem(CONFIG.SK.MERCADO)) || CONFIG.DEFAULT_MERCADO;
     var loyEl = document.getElementById('loyverse');
-    var loy = loyEl ? (parseFloat(loyEl.value) || 0) : 0;
+    var loy = loyEl ? (parseFloat(loyEl.value) || 0) : 0; // Ejemplo: $20 base
     
     var abonos = Metodos.getAbonos();
-    var abonoBS = abonos.abonoBS;
-    var abonoUSD = abonos.abonoUSD;
+    var abonoBS = abonos.abonoBS;   // Ejemplo: 5000 Bs
+    var abonoUSD = abonos.abonoUSD; // Ejemplo: El billete de $20 que entrega
     
     var factor = bcv > 0 ? mercado / bcv : 1;
     var tasaEfectiva = ModoSelector.modoActual === 'protected' ? factor : 1;
     
-    var precioEnBs = loy * bcv;
-    var especial = tasaEfectiva > 0 ? loy / tasaEfectiva : 0;
+    // 1. EL PRECIO TOTAL EN BOLÍVARES (Siempre a tasa BCV)
+    var precioEnBs = loy * bcv; 
+    
+    // 2. EL PRECIO INFLADO EN DÓLARES (Solo si pagara TODO en dólares con brecha, para proteger)
+    var especial = tasaEfectiva > 0 ? loy / tasaEfectiva : 0; 
     
     Calculadora.setVal('precioBs', 'Bs ' + Calculadora.fmt(precioEnBs));
     Calculadora.setVal('precioEspecial', '$' + especial.toFixed(2));
 
-    // 1. CONVERTIR TODO EL PAGO DEL CLIENTE A USD (Moneda Base)
-    var abonoBSenUSD = abonoBS > 0 ? (abonoBS / bcv) : 0;
-    var totalPagadoEnUSD = abonoUSD + abonoBSenUSD;
+    // 3. MATEMÁTICA DEL COBRO MIXTO (Deducir Bolívares primero)
+    var deudaRestanteEnBs = precioEnBs - abonoBS; // 10600 - 5000 = 5600 Bs
+    
+    // El saldo restante en dólares se calcula dividiendo los Bs entre la tasa de MERCADO
+    // para eliminar la brecha, ya que el cliente está pagando con divisas reales.
+    var saldoRealPorCobrarUSD = deudaRestanteEnBs > 0 ? (deudaRestanteEnBs / mercado) : 0;
+    var saldoRealPorCobrarBS = deudaRestanteEnBs > 0 ? deudaRestanteEnBs : 0;
 
-    // 2. CALCULAR SALDOS REALES POR COBRAR
+    // 4. CÁLCULO DEL VUELTO REAL
+    // Si el abono en dólares del cliente supera el saldo real que le quedaba por pagar en dólares
+    var vueltoTotalEnUSD = 0;
+    if (abonoUSD > saldoRealPorCobrarUSD) {
+        vueltoTotalEnUSD = abonoUSD - saldoRealPorCobrarUSD;
+    }
+
+    // Definir las variables finales para la pantalla
     var cobrarUSD = 0;
     var cobrarBS = 0;
 
-    if (totalPagadoEnUSD < loy) {
-        cobrarUSD = loy - totalPagadoEnUSD;
-        cobrarBS = cobrarUSD * bcv;
-    } else {
-        cobrarUSD = 0;
-        cobrarBS = 0;
+    if (vueltoTotalEnUSD === 0) {
+        // Si no hay vuelto, lo que queda por cobrar es el saldo real menos lo que haya puesto en USD
+        cobrarUSD = Math.max(0, saldoRealPorCobrarUSD - abonoUSD);
+        cobrarBS = cobrarUSD * bcv; // Pantalla muestra el equivalente BCV restante
     }
 
-    // 3. ACTUALIZAR EL ESTADO VISUAL Y EL VUELTO
-    Calculadora.actualizarEstado(loy, cobrarBS, cobrarUSD, bcv, tasaEfectiva, abonoBS, abonoUSD);
+    // 5. ENVIAR DATOS LIMPIOS A LA INTERFAZ
+    Calculadora.actualizarEstado(loy, cobrarBS, cobrarUSD, bcv, mercado, abonoBS, abonoUSD, vueltoTotalEnUSD);
 
-    // 4. MOSTRAR SALDOS EN PANTALLA
+    // Mostrar en los campos de "Por Cobrar"
     Calculadora.setVal('cobrarBS', Calculadora.fmt(cobrarBS));
     Calculadora.setVal('cobrarUSD', cobrarUSD.toFixed(2));
 },
 
-actualizarEstado(loy, cobrarBS, cobrarUSD, bcv, tasaEfectiva, abonoBS, abonoUSD) {
+actualizarEstado(loy, cobrarBS, cobrarUSD, bcv, mercado, abonoBS, abonoUSD, vueltoTotalEnUSD) {
     var statusEl = document.getElementById('resumen-status');
     var vueltoSec = document.getElementById('vuelto-section');
     var vueltoAmt = document.getElementById('vuelto-amount');
@@ -558,36 +570,21 @@ actualizarEstado(loy, cobrarBS, cobrarUSD, bcv, tasaEfectiva, abonoBS, abonoUSD)
         return;
     }
 
-    // Convertir todas las entradas a números reales para evitar errores de texto
-    var v_loy = parseFloat(loy) || 0;
-    var v_bcv = parseFloat(bcv) || 0;
-    var v_abonoUSD = parseFloat(abonoUSD) || 0;
-    var v_abonoBS = parseFloat(abonoBS) || 0;
-
-    // 1. Convertir el abono de bolívares a dólares usando BCV
-    var abonoBSenUSD = v_abonoBS > 0 ? (v_abonoBS / v_bcv) : 0;
-
-    // 2. Totalizar el pago del cliente en dólares
-    var totalPagadoEnUSD = v_abonoUSD + abonoBSenUSD;
-
-    // 3. Obtener la diferencia exacta
-    var vueltoTotalEnUSD = totalPagadoEnUSD - v_loy;
-
-    // Si no hay abonos
-    if (v_abonoBS === 0 && v_abonoUSD === 0) {
+    // Si no se ha registrado ningún pago todavía
+    if (abonoBS === 0 && abonoUSD === 0) {
         if (vueltoSec) vueltoSec.style.display = 'none';
         statusEl.textContent = 'Pendiente';
         statusEl.className = 'resumen-status pendiente';
         return;
     }
 
-    // 4. Lógica de vuelto mixto (Dólares enteros + centavos en Bs)
-    if (vueltoTotalEnUSD > 0.009) { // Margen mínimo para evitar fallos de flotantes
+    // LÓGICA DE VUELTO MIXTO (Dólares enteros + Fracción a BCV)
+    if (vueltoTotalEnUSD > 0.009) {
         if (vueltoSec) vueltoSec.style.display = 'block';
 
-        var vueltoUSD = Math.floor(vueltoTotalEnUSD); // Billetes enteros de $1
-        var centavosUSD = vueltoTotalEnUSD - vueltoUSD; // Fracción decimal
-        var vueltoBS = centavosUSD * v_bcv; // Centavos pasados a bolívares por BCV
+        var vueltoUSD = Math.floor(vueltoTotalEnUSD); // Billetes de $1, $5 enteros
+        var centavosUSD = vueltoTotalEnUSD - vueltoUSD; // Fracción decimal sobrante
+        var vueltoBS = centavosUSD * bcv; // Los centavos se devuelven en Bs a tasa BCV
 
         var hayVueltoUSD = vueltoUSD >= 1;
         var hayVueltoBS = vueltoBS > 0.05;
@@ -607,12 +604,14 @@ actualizarEstado(loy, cobrarBS, cobrarUSD, bcv, tasaEfectiva, abonoBS, abonoUSD)
         statusEl.textContent = '↩ Dar vuelto';
         statusEl.className = 'resumen-status vuelto';
     } 
-    // Si pagó exacto o la diferencia por cobrar es ínfima
-    else if (parseFloat(cobrarBS) < 0.1 && parseFloat(cobrarUSD) < 0.01) {
+    // Si la deuda ya se cubrió por completo sin dejar vueltos significativos
+    else if (cobrarBS < 0.1 && cobrarUSD < 0.01) {
         if (vueltoSec) vueltoSec.style.display = 'none';
         statusEl.textContent = '✓ Cobro completo';
         statusEl.className = 'resumen-status completo';
-    } else {
+    } 
+    // Si todavía queda dinero pendiente por abonar
+    else {
         if (vueltoSec) vueltoSec.style.display = 'none';
         statusEl.textContent = 'Pendiente';
         statusEl.className = 'resumen-status pendiente';
