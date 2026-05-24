@@ -493,8 +493,8 @@ const Calculadora = {
   /* Redondeo al medio dólar superior — ORIGINAL
      2.00→2.00 | 2.01→2.50 | 2.51→3.00 */
   redondearUSD(n) {
-    return Math.ceil(n * 2) / 2;
-  },
+  return Math.round(n * 100) / 100;
+},
 
   setVal(id, txt) {
     const el = document.getElementById(id);
@@ -545,15 +545,13 @@ const Calculadora = {
     var cobrarBSreal  = cobrarBS;
     var cobrarUSDreal = cobrarUSD;
 
-    // Umbral visual — oculta sobrantes pequeños en las casillas
-    cobrarBS  = cobrarBS  < 50   ? 0 : cobrarBS;
-    cobrarUSD = cobrarUSD < 0.51 ? 0 : cobrarUSD;
+    cobrarBS  = Math.max(0, cobrarBS);
+cobrarUSD = Math.max(0, cobrarUSD);
 
-    Calculadora.setVal('cobrarBS',  Calculadora.fmt(Math.max(0, cobrarBS)));
-    Calculadora.setVal('cobrarUSD', Calculadora.redondearUSD(Math.max(0, cobrarUSD)).toFixed(2));
+Calculadora.setVal('cobrarBS',  Calculadora.fmt(cobrarBS));
+Calculadora.setVal('cobrarUSD', cobrarUSD.toFixed(2));
 
-    // Pasar valores REALES sin umbral para que el vuelto sea correcto
-    this.actualizarEstado(loy, cobrarBSreal, cobrarUSDreal, bcv, tasaEfectiva, abonoBS, abonoUSD);
+this.actualizarEstado(loy, cobrarBS, cobrarUSD, bcv, tasaEfectiva, abonoBS, abonoUSD);
   },
 
 actualizarEstado(loy, cobrarBS, cobrarUSD, bcv, tasaEfectiva, abonoBS, abonoUSD) {
