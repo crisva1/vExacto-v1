@@ -868,6 +868,11 @@ input[type=number].metodo-amount { -moz-appearance: textfield; appearance: textf
   border-color: #D97706;
   box-shadow: 0 0 0 3px rgba(217,119,6,0.15);
 }
+/* NUEVA REGLA: Forzar a que las opciones internas sigan el color del tema claro/oscuro */
+.vuelto-select option {
+    background-color: var(--surface-2) !important;
+    color: var(--text) !important;
+}
 
 
 /* Ya completo — verificado */
