@@ -501,30 +501,28 @@ const Calculadora = {
     if (el) { el.textContent = txt; el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
   },
 
-  calc() {
-    const bcv     = parseFloat(localStorage.getItem(CONFIG.SK.BCV))     || CONFIG.DEFAULT_BCV;
-    const mercado = parseFloat(localStorage.getItem(CONFIG.SK.MERCADO))  || CONFIG.DEFAULT_MERCADO;
-    const loy     = parseFloat(document.getElementById('loyverse')?.value) || 0;
+calc() {
+    var bcv      = parseFloat(localStorage.getItem(CONFIG.SK.BCV))    || CONFIG.DEFAULT_BCV;
+    var mercado  = parseFloat(localStorage.getItem(CONFIG.SK.MERCADO)) || CONFIG.DEFAULT_MERCADO;
+    var loyEl    = document.getElementById('loyverse');
+    var loy      = loyEl ? (parseFloat(loyEl.value) || 0) : 0;
 
-    // Recoger abonos desde el sistema dinámico de métodos
-    const { abonoBS, abonoUSD } = Metodos.getAbonos();
+    var abonos   = Metodos.getAbonos();
+    var abonoBS  = abonos.abonoBS;
+    var abonoUSD = abonos.abonoUSD;
 
-    // Factor de protección = mercado / BCV — ORIGINAL
-    const factor = bcv > 0 ? mercado / bcv : 1;
+    var factor       = bcv > 0 ? mercado / bcv : 1;
+    var tasaEfectiva = ModoSelector.modoActual === 'protected' ? factor : 1;
 
-    // Tasa efectiva según modo
-    const tasaEfectiva = ModoSelector.modoActual === 'protected' ? factor : 1;
+    var precioEnBs = loy * bcv;
+    var especial   = tasaEfectiva > 0 ? loy / tasaEfectiva : 0;
 
-    // Precios base
-    const precioEnBs = loy * bcv;
-    const especial   = tasaEfectiva > 0 ? loy / tasaEfectiva : 0;
+    Calculadora.setVal('precioBs',       'Bs ' + Calculadora.fmt(precioEnBs));
+    Calculadora.setVal('precioEspecial', '$'   + especial.toFixed(2));
 
-    this.setVal('precioBs',       'Bs ' + this.fmt(precioEnBs));
-    this.setVal('precioEspecial', '$'   + this.redondearUSD(especial).toFixed(2));
-
-    // Cálculo de cobros según abonos — LÓGICA ORIGINAL
-    let cobrarUSD = 0;
-    let cobrarBS  = 0;
+    // Cálculo raw — puede ser negativo (pagó de más)
+    var cobrarUSD = 0;
+    var cobrarBS  = 0;
 
     if (abonoBS > 0 && abonoUSD === 0) {
       cobrarUSD = (loy - (abonoBS / bcv)) / tasaEfectiva;
@@ -541,17 +539,12 @@ const Calculadora = {
       cobrarBS  = precioEnBs;
     }
 
-   // Guardar valores reales sin redondear para calcular vuelto
-    var cobrarBSreal  = cobrarBS;
-    var cobrarUSDreal = cobrarUSD;
+    // Primero calcular el vuelto con valores RAW (pueden ser negativos)
+    Calculadora.actualizarEstado(loy, cobrarBS, cobrarUSD, bcv, tasaEfectiva, abonoBS, abonoUSD);
 
-    cobrarBS  = Math.max(0, cobrarBS);
-cobrarUSD = Math.max(0, cobrarUSD);
-
-Calculadora.setVal('cobrarBS',  Calculadora.fmt(cobrarBS));
-Calculadora.setVal('cobrarUSD', cobrarUSD.toFixed(2));
-
-this.actualizarEstado(loy, cobrarBS, cobrarUSD, bcv, tasaEfectiva, abonoBS, abonoUSD);
+    // Luego mostrar en pantalla solo valores positivos
+    Calculadora.setVal('cobrarBS',  Calculadora.fmt(Math.max(0, cobrarBS)));
+    Calculadora.setVal('cobrarUSD', Math.max(0, cobrarUSD).toFixed(2));
   },
 
 actualizarEstado(loy, cobrarBS, cobrarUSD, bcv, tasaEfectiva, abonoBS, abonoUSD) {
