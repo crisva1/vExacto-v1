@@ -553,93 +553,77 @@ cobrarUSD = cobrarUSD < 0.51 ? 0 : Math.max(0, cobrarUSD);
   },
 
 actualizarEstado(loy, cobrarBS, cobrarUSD, bcv, tasaEfectiva, abonoBS, abonoUSD) {
-    var statusEl  = document.getElementById('resumen-status');
+    var statusEl = document.getElementById('resumen-status');
     var vueltoSec = document.getElementById('vuelto-section');
     var vueltoAmt = document.getElementById('vuelto-amount');
 
     if (!statusEl) return;
 
     if (loy <= 0) {
-      statusEl.textContent = 'Ingresa un monto';
-      statusEl.className   = 'resumen-status vacio';
-      if (vueltoSec) vueltoSec.style.display = 'none';
-      return;
+        statusEl.textContent = 'Ingresa un monto';
+        statusEl.className = 'resumen-status vacio';
+        if (vueltoSec) vueltoSec.style.display = 'none';
+        return;
     }
 
-    // Recalcular sobrante REAL sin umbrales
-    var rawUSD = 0;
-    var rawBS  = 0;
+    // 1. CONVERTIR TODO LO QUE EL CLIENTE PAGÓ A DÓLARES (Moneda Base)
+    // Los Bolívares se llevan a dólares usando la tasa BCV del sistema
+    var abonoBSenUSD = abonoBS > 0 ? (abonoBS / bcv) : 0;
+    var totalPagadoEnUSD = abonoUSD + abonoBSenUSD;
 
-    if (abonoBS > 0 && abonoUSD === 0) {
-      rawUSD = (loy - (abonoBS / bcv)) / tasaEfectiva;
-    } else if (abonoUSD > 0 && abonoBS === 0) {
-      rawBS = (loy - (abonoUSD * tasaEfectiva)) * bcv;
-    } else if (abonoBS > 0 && abonoUSD > 0) {
-      rawUSD = ((loy - (abonoBS / bcv)) / tasaEfectiva) - abonoUSD;
-      if (rawUSD < 0) {
-        rawBS  = Math.abs(rawUSD) * bcv;
-        rawUSD = 0;
-      }
-    } else {
-      // Sin abonos — no hay vuelto
-      if (vueltoSec) vueltoSec.style.display = 'none';
-      statusEl.textContent = 'Pendiente';
-      statusEl.className   = 'resumen-status pendiente';
-      return;
+    // 2. CALCULAR EL VUELTO TOTAL EN DÓLARES
+    // Si el total pagado es mayor que la deuda (loy), hay vuelto.
+    var vueltoTotalEnUSD = totalPagadoEnUSD - loy;
+
+    // Si no ha pagado nada o no cubre la deuda
+    if (abonoBS === 0 && abonoUSD === 0) {
+        if (vueltoSec) vueltoSec.style.display = 'none';
+        statusEl.textContent = 'Pendiente';
+        statusEl.className = 'resumen-status pendiente';
+        return;
     }
 
-    // Calcular vuelto
-    // rawUSD negativo = cliente pagó de más en USD
-    // rawBS  negativo = cliente pagó de más en Bs
     var vueltoUSD = 0;
-    var vueltoBS  = 0;
+    var vueltoBS = 0;
 
-    if (rawUSD < 0) {
-      // Sobrante en USD — separar billetes enteros y centavos
-      var sobrante  = Math.abs(rawUSD);
-      vueltoUSD     = Math.floor(sobrante);         // billetes enteros en USD
-      var centavos  = sobrante - vueltoUSD;         // fracción decimal
-      vueltoBS      = centavos * bcv;               // centavos → Bs × BCV
+    // 3. DESGLOSAR EL VUELTO (Billetes en USD y centavos en Bs)
+    if (vueltoTotalEnUSD > 0.005) { // Evita errores por decimales flotantes
+        vueltoUSD = Math.floor(vueltoTotalEnUSD); // Billetes enteros de $1, $5, etc.
+        var centavosUSD = vueltoTotalEnUSD - vueltoUSD; // Los centavos que quedan sueltos
+        vueltoBS = centavosUSD * bcv; // Esos centavos se multiplican por la tasa BCV
     }
 
-    if (rawBS < 0) {
-      vueltoBS = vueltoBS + Math.abs(rawBS);        // sumar sobrante en Bs
-    }
-
-    // ¿Hay vuelto real?
+    // Evaluar si el vuelto es significativo para mostrarse
     var hayVueltoUSD = vueltoUSD >= 1;
-    var hayVueltoBS  = vueltoBS  > 0.5;
+    var hayVueltoBS = vueltoBS > 0.10; // Más de 10 céntimos de Bolívar
 
     if (hayVueltoUSD || hayVueltoBS) {
-      if (vueltoSec) vueltoSec.style.display = 'block';
+        if (vueltoSec) vueltoSec.style.display = 'block';
 
-      // Construir texto del vuelto
-      var lineas = '';
-      if (hayVueltoUSD) {
-        lineas += '<div class="vuelto-linea usd">USD <span>$' + vueltoUSD.toFixed(2) + '</span></div>';
-      }
-      if (hayVueltoUSD && hayVueltoBS) {
-        lineas += '<div class="vuelto-mas">+</div>';
-      }
-      if (hayVueltoBS) {
-        lineas += '<div class="vuelto-linea bs">Bs <span>' + Calculadora.fmt(vueltoBS) + '</span></div>';
-      }
+        var lineas = '';
+        if (hayVueltoUSD) {
+            lineas += '<div class="vuelto-linea usd">USD <span>$' + vueltoUSD.toFixed(0) + '.00</span></div>';
+        }
+        if (hayVueltoUSD && hayVueltoBS) {
+            lineas += '<div class="vuelto-mas">+</div>';
+        }
+        if (hayVueltoBS) {
+            lineas += '<div class="vuelto-linea bs">Bs <span>' + Calculadora.fmt(vueltoBS) + '</span></div>';
+        }
 
-      if (vueltoAmt) vueltoAmt.innerHTML = lineas;
-
-      statusEl.textContent = '↩ Dar vuelto';
-      statusEl.className   = 'resumen-status vuelto';
-
-    } else if (cobrarBS < 0.01 && cobrarUSD < 0.005) {
-      if (vueltoSec) vueltoSec.style.display = 'none';
-      statusEl.textContent = '✓ Cobro completo';
-      statusEl.className   = 'resumen-status completo';
+        if (vueltoAmt) vueltoAmt.innerHTML = lineas;
+        statusEl.textContent = '↩ Dar vuelto';
+        statusEl.className = 'resumen-status vuelto';
+    } else if (cobrarBS < 0.1 && cobrarUSD < 0.01) {
+        if (vueltoSec) vueltoSec.style.display = 'none';
+        statusEl.textContent = '✓ Cobro completo';
+        statusEl.className = 'resumen-status completo';
     } else {
-      if (vueltoSec) vueltoSec.style.display = 'none';
-      statusEl.textContent = 'Pendiente';
-      statusEl.className   = 'resumen-status pendiente';
+        if (vueltoSec) vueltoSec.style.display = 'none';
+        statusEl.textContent = 'Pendiente';
+        statusEl.className = 'resumen-status pendiente';
     }
-  },
+},
 
  nuevaVenta() {
   document.getElementById('loyverse').value = '';
