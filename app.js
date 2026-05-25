@@ -522,7 +522,6 @@ calc() {
     Calculadora.setVal('precioEspecial', '$' + especial.toFixed(2));
 
     // 2. MATEMÁTICA ESTRICTA PARA "POR COBRAR BOLÍVARES" (PROTECCIÓN DE CAJA)
-    // A la deuda total en Bs le quitamos lo que pagó en Bs y lo que pagó en dólares (valorados a tasa mercado)
     var abonoUSDenBsMercado = abonoUSD * mercado;
     var cobrarBS = precioEnBs - abonoBS - abonoUSDenBsMercado;
     cobrarBS = Math.max(0, cobrarBS); // Evita números negativos en pantalla
@@ -549,6 +548,130 @@ calc() {
     Calculadora.setVal('cobrarBS', Calculadora.fmt(cobrarBS));
     Calculadora.setVal('cobrarUSD', cobrarUSD.toFixed(2));
 },
+
+abrirHistorialPanel() {
+    if (typeof cerrarDrawer === "function") cerrarDrawer();
+    var panel = document.getElementById('historial-panel');
+    if (panel) panel.style.display = 'block';
+    this.renderizarHistorial();
+},
+
+cerrarHistorialPanel() {
+    var panel = document.getElementById('historial-panel');
+    if (panel) panel.style.display = 'none';
+},
+
+renderizarHistorial() {
+    var historial = JSON.parse(localStorage.getItem('vexacto_historial')) || [];
+    var listaContainer = document.getElementById('historial-lista-container');
+    var txtTotalUSD = document.getElementById('hist-total-usd');
+    var txtContador = document.getElementById('hist-contador');
+    var txtFecha = document.getElementById('hist-fecha-dia');
+    var txtEfectivo = document.getElementById('hist-efectivo-real');
+    var txtDigital = document.getElementById('hist-digital-real');
+
+    if (!listaContainer) return;
+
+    if (txtFecha) txtFecha.textContent = "Caja del día: " + new Date().toLocaleDateString('es-VE');
+
+    var totalFacturadoUSD = 0;
+    var totalEfectivoUSD = 0;
+    var totalDigitalUSD = 0;
+
+    listaContainer.innerHTML = "";
+    if (txtContador) txtContador.textContent = historial.length + " cobros";
+
+    if (historial.length === 0) {
+        listaContainer.innerHTML = `<div style="text-align:center; padding:30px; color:var(--text-dim); font-size:14px;">No hay cobros registrados el día de hoy.</div>`;
+        if (txtTotalUSD) txtTotalUSD.textContent = "$0.00";
+        if (txtEfectivo) txtEfectivo.textContent = "$0.00";
+        if (txtDigital) txtDigital.textContent = "$0.00";
+        return;
+    }
+
+    historial.forEach((venta, index) => {
+        totalFacturadoUSD += parseFloat(venta.montoFacturadoUSD || 0);
+
+        var efectivoUSDRecibido = parseFloat(venta.ingresos?.efectivoUSD || 0);
+        var vueltoUSD_Entregado = parseFloat(venta.vueltos?.medioUSD === "efectivo_usd" ? (venta.vueltos?.montoUSD || 0) : 0);
+        
+        var efectivoNetoDeEstaVenta = efectivoUSDRecibido - vueltoUSD_Entregado;
+        totalEfectivoUSD += efectivoNetoDeEstaVenta;
+
+        var totalPagadoEnUSD = efectivoUSDRecibido + (parseFloat(venta.ingresos?.bolivares || 0) / (venta.tasaBCV || 1));
+        var vueltoTotalDescontadoUSD = parseFloat(venta.vueltos?.montoUSD || 0) + (parseFloat(venta.vueltos?.montoBS || 0) / (venta.tasaBCV || 1));
+        var netoVentaUSD = totalPagadoEnUSD - vueltoTotalDescontadoUSD;
+        
+        totalDigitalUSD += (netoVentaUSD - efectivoNetoDeEstaVenta);
+
+        var itemDiv = document.createElement('div');
+        itemDiv.className = 'hist-item-card';
+        
+        var horaLimpia = venta.fecha ? (venta.fecha.split(', ')[1] || venta.fecha) : "--:--";
+
+        itemDiv.innerHTML = `
+            <div class="hist-header-row" onclick="Calculadora.toggleDetalleHistorial(${index})">
+                <div>
+                    <span style="font-weight:600; font-size:14px; color:var(--text); display:block;">Venta #${index + 1}</span>
+                    <span style="font-size:12px; color:var(--text-muted);">${horaLimpia}</span>
+                </div>
+                <div style="text-align:right;">
+                    <span style="font-family:var(--font-num); font-weight:700; color:var(--green); font-size:15px;">+$${venta.montoFacturadoUSD.toFixed(2)}</span>
+                    <span style="display:block; font-size:11px; color:var(--text-dim);">Ver detalles ›</span>
+                </div>
+            </div>
+            <div id="hist-detalle-${index}" class="hist-detalles-desplegable" style="display:none;">
+                <div>• <strong>Tasa BCV:</strong> Bs ${venta.tasaBCV} | <strong>Mercado:</strong> Bs ${venta.tasaMercado}</div>
+                <div>• <strong>Abonado USD:</strong> $${efectivoUSDRecibido.toFixed(2)}</div>
+                <div>• <strong>Abonado Bs:</strong> Bs ${this.fmt(venta.ingresos?.bolivares || 0)}</div>
+                <div style="color:var(--gold); font-weight:600;">• <strong>Vuelto USD:</strong> $${parseFloat(venta.vueltos?.montoUSD || 0).toFixed(2)} (${venta.vueltos?.medioUSD})</div>
+                <div style="color:var(--gold); font-weight:600;">• <strong>Vuelto Bs:</strong> Bs ${this.fmt(venta.vueltos?.montoBS || 0)} (${venta.vueltos?.medioBS})</div>
+            </div>
+        `;
+        listaContainer.appendChild(itemDiv);
+    });
+
+    if (txtTotalUSD) txtTotalUSD.textContent = "$" + totalFacturadoUSD.toFixed(2);
+    if (txtEfectivo) txtEfectivo.textContent = "$" + totalEfectivoUSD.toFixed(2);
+    
+    var currentBCV = parseFloat(localStorage.getItem(CONFIG.SK.BCV)) || CONFIG.DEFAULT_BCV;
+    var totalDigitalEnBs = totalDigitalUSD * currentBCV;
+    if (txtDigital) txtDigital.textContent = "Bs " + this.fmt(Math.max(0, totalDigitalEnBs));
+},
+
+toggleDetalleHistorial(idx) {
+    var el = document.getElementById('hist-detalle-' + idx);
+    if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+},
+
+exportarHistorial() {
+    var historial = JSON.parse(localStorage.getItem('vexacto_historial')) || [];
+    if(historial.length === 0) return alert("No hay datos para exportar.");
+    
+    var textoReporte = "REPORTE DE COBROS VEXACTO\n=========================\n\n";
+    historial.forEach((v, i) => {
+        textoReporte += `VENTA #${i+1} - Horario: ${v.fecha}\n`;
+        textoReporte += `Monto Base: $${v.montoFacturadoUSD.toFixed(2)}\n`;
+        textoReporte += `Ingresos: $${v.ingresos?.efectivoUSD} | Bs ${v.ingresos?.bolivares}\n`;
+        textoReporte += `Vueltos: $${v.vueltos?.montoUSD} (${v.vueltos?.medioUSD}) | Bs ${v.vueltos?.montoBS} (${v.vueltos?.medioBS})\n`;
+        textoReporte += `-----------------------------------------\n`;
+    });
+    
+    var blob = new Blob([textoReporte], { type: "text/plain;charset=utf-8" });
+    var link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `Cierre_Caja_${new Date().toISOString().split('T')[0]}.txt`;
+    link.click();
+},
+
+resetCajaDiaria() {
+    if (confirm("¿Estás seguro de que deseas archivar y borrar los cobros de hoy? Esto dejará la caja en cero.")) {
+        localStorage.removeItem('vexacto_historial');
+        alert("Caja reiniciada con éxito.");
+        this.renderizarHistorial();
+    }
+},
+
 
 
 actualizarEstado(loy, cobrarBS, cobrarUSD, bcv, mercado, abonoBS, abonoUSD, vueltoTotalEnUSD) {

@@ -1,6 +1,6 @@
 // 🔄 ACTUALIZAR ESTE NÚMERO CADA VEZ QUE HAGAS CAMBIOS
 // Formato: vexacto-v1-AAAAMMDD-1 (ejemplo: vexacto-v1-20260523-1)
-const CACHE_NAME = 'vexacto-v1-20260524-10';
+const CACHE_NAME = 'vexacto-v1-20260524-11';
 
 const urlsToCache = [
     './',

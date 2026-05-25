@@ -874,5 +874,35 @@ input[type=number].metodo-amount { -moz-appearance: textfield; appearance: textf
     color: var(--text) !important;
 }
 
+/* Estilos para las filas de transacciones del historial */
+.hist-item-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 14px;
+    cursor: pointer;
+    box-shadow: var(--shadow-xs);
+    transition: background 0.2s ease, transform 0.15s ease;
+}
+.hist-item-card:active {
+    transform: scale(0.99);
+    background: var(--surface-2);
+}
+.hist-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.hist-detalles-desplegable {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--border);
+    font-size: 13px;
+    color: var(--text-2);
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
 
 /* Ya completo — verificado */
