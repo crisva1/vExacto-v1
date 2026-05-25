@@ -794,44 +794,56 @@ procesarCierreVenta() {
     var bcv = parseFloat(localStorage.getItem(CONFIG.SK.BCV)) || CONFIG.DEFAULT_BCV;
     var mercado = parseFloat(localStorage.getItem(CONFIG.SK.MERCADO)) || CONFIG.DEFAULT_MERCADO;
     var loyEl = document.getElementById('loyverse');
-    var loy = loyEl ? (parseFloat(loyEl.value) || 0) : 0;
+    var loy = loyEl ? (parseFloat(loyEl.value) || 0) : 0; // El $20 base de vitrina
 
-    var abonos = Metodos.getAbonos();
+    // Captura exacta de los abonos reales que introdujo el cajero
+    var abonoUSD = parseFloat(document.getElementById('abono-usd')?.value) || 0;
+    var abonoBS = parseFloat(document.getElementById('abono-bs')?.value) || 0;
     
-    // 1. Recalcular el vuelto exacto obtenido en la última operación
-    var abonoBSenUSD = abonos.abonoBS > 0 ? (abonos.abonoBS / bcv) : 0;
-    var totalPagadoEnUSD = abonos.abonoUSD + abonoBSenUSD;
-    var vueltoTotalEnUSD = Math.max(0, totalPagadoEnUSD - loy);
+    // 1. RECALCULAR LAS DOS ESCALAS PARA EL HISTORIAL
+    var precioEnBs = loy * bcv; // Los 10.600 Bs fijos legales
+    
+    // Calcular el saldo restante real en dólares usando la tasa de mercado (desinflado)
+    var deudaRestanteEnBs = precioEnBs - abonoBS; 
+    var saldoRealPorCobrarUSD = deudaRestanteEnBs > 0 ? (deudaRestanteEnBs / mercado) : 0;
+
+    var vueltoTotalEnUSD = 0;
+    if (abonoUSD > saldoRealPorCobrarUSD) {
+        vueltoTotalEnUSD = abonoUSD - saldoRealPorCobrarUSD;
+    }
 
     var vueltoUSD = 0;
     var vueltoBS = 0;
-    var medioVueltoUSD = "ninguno";
-    var medioVueltoBS = "ninguno";
+    var medioVueltoUSD = "N/A";
+    var medioVueltoBS = "N/A";
 
-    // 2. Si hubo vuelto, identificar los montos y los métodos de egreso elegidos
+    // 2. DESGLOSAR EL VUELTO MIXTO AUDITADO
     if (vueltoTotalEnUSD > 0.009) {
-        vueltoUSD = Math.floor(vueltoTotalEnUSD);
-        var centavosUSD = vueltoTotalEnUSD - vueltoUSD;
-        vueltoBS = centavosUSD * bcv;
+        vueltoUSD = Math.floor(vueltoTotalEnUSD); // Billetes enteros de $
+        var centavosUSD = vueltoTotalEnUSD - vueltoUSD; // Fracción decimal
+        vueltoBS = parseFloat((centavosUSD * bcv).toFixed(2)); // Centavos pasados a Bs por BCV
 
+        // Leer qué métodos seleccionó el cajero en el HTML
         if (vueltoUSD >= 1) {
-            medioVueltoUSD = document.getElementById('vuelto-medio-usd').value;
+            var sUSD = document.getElementById('vuelto-medio-usd');
+            medioVueltoUSD = sUSD ? sUSD.options[sUSD.selectedIndex].text : "Efectivo USD";
         }
         if (vueltoBS > 0.05) {
-            medioVueltoBS = document.getElementById('vuelto-medio-bs').value;
+            var sBS = document.getElementById('vuelto-medio-bs');
+            medioVueltoBS = sBS ? sBS.options[sBS.selectedIndex].text : "Pago Móvil";
         }
     }
 
-    // 3. Crear la estructura del reporte de la venta para auditoría posterior
+    // 3. CREAR EL OBJETO DE AUDITORÍA PERFECTA
     var nuevaVentaLog = {
-        id: "V-" + Date.now(), // ID único autogenerado
-        fecha: new Date().toLocaleString('es-VE', { timeZone: 'America/Caracas' }), // Hora oficial de Venezuela
-        montoFacturadoUSD: loy,
+        id: "V-" + Date.now(),
+        fecha: new Date().toLocaleString('es-VE', { timeZone: 'America/Caracas' }),
+        montoFacturadoUSD: loy, // El precio de vitrina ($20)
         tasaBCV: bcv,
         tasaMercado: mercado,
         ingresos: {
-            efectivoUSD: abonos.abonoUSD,
-            bolivares: abonos.abonosBS || abonos.abonoBS // Asegura compatibilidad con tu objeto de abonos
+            efectivoUSD: abonoUSD,
+            bolivares: abonoBS
         },
         vueltos: {
             montoUSD: vueltoUSD,
@@ -841,21 +853,18 @@ procesarCierreVenta() {
         }
     };
 
-    // 4. Guardar localmente en el navegador (localStorage) sin afectar el resto de la app
+    // 4. PERSISTENCIA EN EL HISTORIAL LOCAL
     var historial = JSON.parse(localStorage.getItem('vexacto_historial')) || [];
     historial.push(nuevaVentaLog);
     localStorage.setItem('vexacto_historial', JSON.stringify(historial));
 
-    // 5. Alerta de confirmación al usuario
     alert("¡Cobro procesado con éxito y registrado en el historial!");
     
-    // 6. Limpiar la interfaz llamando a tu método nativo de borrado rápido
-    if (typeof this.nuevaVenta === 'function') {
-        this.nuevaVenta();
-    } else if (typeof Calculadora.nuevaVenta === 'function') {
-        Calculadora.nuevaVenta();
-    }
+    // 5. REINICIAR CALCULADORA
+    if (typeof this.nuevaVenta === 'function') this.nuevaVenta();
+    else if (typeof Calculadora.nuevaVenta === 'function') Calculadora.nuevaVenta();
 },
+
 
 
  nuevaVenta() {
