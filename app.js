@@ -794,16 +794,15 @@ procesarCierreVenta() {
     var bcv = parseFloat(localStorage.getItem(CONFIG.SK.BCV)) || CONFIG.DEFAULT_BCV;
     var mercado = parseFloat(localStorage.getItem(CONFIG.SK.MERCADO)) || CONFIG.DEFAULT_MERCADO;
     var loyEl = document.getElementById('loyverse');
-    var loy = loyEl ? (parseFloat(loyEl.value) || 0) : 0; // El $20 base de vitrina
+    var loy = loyEl ? (parseFloat(loyEl.value) || 0) : 0; // El $20 base
 
-    // Captura exacta de los abonos reales que introdujo el cajero
-    var abonoUSD = parseFloat(document.getElementById('abono-usd')?.value) || 0;
-    var abonoBS = parseFloat(document.getElementById('abono-bs')?.value) || 0;
+    // CORRECCIÓN SEGURA: Usamos el método nativo de tu app para leer los abonos reales
+    var abonos = typeof Metodos.getAbonos === 'function' ? Metodos.getAbonos() : { abonoBS: 0, abonoUSD: 0 };
+    var abonoUSD = parseFloat(abonos.abonoUSD || 0);
+    var abonoBS = parseFloat(abonos.abonoBS || 0);
     
-    // 1. RECALCULAR LAS DOS ESCALAS PARA EL HISTORIAL
+    // 1. Recalcular las dos escalas para el historial
     var precioEnBs = loy * bcv; // Los 10.600 Bs fijos legales
-    
-    // Calcular el saldo restante real en dólares usando la tasa de mercado (desinflado)
     var deudaRestanteEnBs = precioEnBs - abonoBS; 
     var saldoRealPorCobrarUSD = deudaRestanteEnBs > 0 ? (deudaRestanteEnBs / mercado) : 0;
 
@@ -817,24 +816,29 @@ procesarCierreVenta() {
     var medioVueltoUSD = "N/A";
     var medioVueltoBS = "N/A";
 
-    // 2. DESGLOSAR EL VUELTO MIXTO AUDITADO
+    // 2. Desglosar el vuelto mixto auditado
     if (vueltoTotalEnUSD > 0.009) {
         vueltoUSD = Math.floor(vueltoTotalEnUSD); // Billetes enteros de $
         var centavosUSD = vueltoTotalEnUSD - vueltoUSD; // Fracción decimal
         vueltoBS = parseFloat((centavosUSD * bcv).toFixed(2)); // Centavos pasados a Bs por BCV
 
         // Leer qué métodos seleccionó el cajero en el HTML
-        if (vueltoUSD >= 1) {
-            var sUSD = document.getElementById('vuelto-medio-usd');
-            medioVueltoUSD = sUSD ? sUSD.options[sUSD.selectedIndex].text : "Efectivo USD";
+        var sUSD = document.getElementById('vuelto-medio-usd');
+        if (vueltoUSD >= 1 && sUSD) {
+            medioVueltoUSD = sUSD.options[sUSD.selectedIndex].text;
+        } else if (vueltoUSD >= 1) {
+            medioVueltoUSD = "Efectivo USD";
         }
-        if (vueltoBS > 0.05) {
-            var sBS = document.getElementById('vuelto-medio-bs');
-            medioVueltoBS = sBS ? sBS.options[sBS.selectedIndex].text : "Pago Móvil";
+
+        var sBS = document.getElementById('vuelto-medio-bs');
+        if (vueltoBS > 0.05 && sBS) {
+            medioVueltoBS = sBS.options[sBS.selectedIndex].text;
+        } else if (vueltoBS > 0.05) {
+            medioVueltoBS = "Pago Móvil";
         }
     }
 
-    // 3. CREAR EL OBJETO DE AUDITORÍA PERFECTA
+    // 3. Crear el objeto de auditoría con datos interconectados
     var nuevaVentaLog = {
         id: "V-" + Date.now(),
         fecha: new Date().toLocaleString('es-VE', { timeZone: 'America/Caracas' }),
@@ -853,17 +857,18 @@ procesarCierreVenta() {
         }
     };
 
-    // 4. PERSISTENCIA EN EL HISTORIAL LOCAL
+    // 4. Persistencia en el historial local
     var historial = JSON.parse(localStorage.getItem('vexacto_historial')) || [];
     historial.push(nuevaVentaLog);
     localStorage.setItem('vexacto_historial', JSON.stringify(historial));
 
     alert("¡Cobro procesado con éxito y registrado en el historial!");
     
-    // 5. REINICIAR CALCULADORA
+    // 5. Reiniciar calculadora
     if (typeof this.nuevaVenta === 'function') this.nuevaVenta();
     else if (typeof Calculadora.nuevaVenta === 'function') Calculadora.nuevaVenta();
 },
+
 
 
 
