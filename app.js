@@ -564,79 +564,96 @@ cerrarHistorialPanel() {
 renderizarHistorial() {
     var historial = JSON.parse(localStorage.getItem('vexacto_historial')) || [];
     var listaContainer = document.getElementById('historial-lista-container');
-    var txtTotalUSD = document.getElementById('hist-total-usd');
-    var txtContador = document.getElementById('hist-contador');
-    var txtFecha = document.getElementById('hist-fecha-dia');
-    var txtEfectivo = document.getElementById('hist-efectivo-real');
-    var txtDigital = document.getElementById('hist-digital-real');
+    var txtTotalUSD    = document.getElementById('hist-total-usd');
+    var txtContador    = document.getElementById('hist-contador');
+    var txtFecha       = document.getElementById('hist-fecha-dia');
+    var txtEfectivo    = document.getElementById('hist-efectivo-real');
+    var txtDigital     = document.getElementById('hist-digital-real');
 
     if (!listaContainer) return;
 
     if (txtFecha) txtFecha.textContent = "Caja del día: " + new Date().toLocaleDateString('es-VE');
+    if (txtContador) txtContador.textContent = historial.length + " cobros";
 
+    // ── 1. ACUMULADORES PUROS ──────────────────────────────────────
     var totalFacturadoUSD = 0;
-    var totalEfectivoUSD = 0;
-    var totalDigitalUSD = 0;
+    var totalEfectivoUSD  = 0;
+    var totalDigitalBs    = 0;
 
     listaContainer.innerHTML = "";
-    if (txtContador) txtContador.textContent = historial.length + " cobros";
 
     if (historial.length === 0) {
         listaContainer.innerHTML = `<div style="text-align:center; padding:30px; color:var(--text-dim); font-size:14px;">No hay cobros registrados el día de hoy.</div>`;
         if (txtTotalUSD) txtTotalUSD.textContent = "$0.00";
         if (txtEfectivo) txtEfectivo.textContent = "$0.00";
-        if (txtDigital) txtDigital.textContent = "$0.00";
+        if (txtDigital)  txtDigital.textContent  = "Bs 0,00";
         return;
     }
 
     historial.forEach((venta, index) => {
+
+        // ── 2. ACUMULACIÓN POR VENTA ───────────────────────────────
+
+        // Total facturado (precio vitrina)
         totalFacturadoUSD += parseFloat(venta.montoFacturadoUSD || 0);
 
-        var efectivoUSDRecibido = parseFloat(venta.ingresos?.efectivoUSD || 0);
-        var vueltoUSD_Entregado = parseFloat(venta.vueltos?.medioUSD === "efectivo_usd" ? (venta.vueltos?.montoUSD || 0) : 0);
-        
-        var efectivoNetoDeEstaVenta = efectivoUSDRecibido - vueltoUSD_Entregado;
-        totalEfectivoUSD += efectivoNetoDeEstaVenta;
+        // Neto efectivo USD: lo que entró físicamente menos lo que salió
+        var efecRecibido = parseFloat(venta.ingresos?.efectivoUSD || 0);
+        var vuelUSD      = parseFloat(venta.vueltos?.montoUSD     || 0);
+        totalEfectivoUSD += (efecRecibido - vuelUSD);
 
-        var totalPagadoEnUSD = efectivoUSDRecibido + (parseFloat(venta.ingresos?.bolivares || 0) / (venta.tasaBCV || 1));
-        var vueltoTotalDescontadoUSD = parseFloat(venta.vueltos?.montoUSD || 0) + (parseFloat(venta.vueltos?.montoBS || 0) / (venta.tasaBCV || 1));
-        var netoVentaUSD = totalPagadoEnUSD - vueltoTotalDescontadoUSD;
-        
-        totalDigitalUSD += (netoVentaUSD - efectivoNetoDeEstaVenta);
+        // Neto digital Bs: lo que entró por banca menos vuelto en Bs
+        var bsRecibidos = parseFloat(venta.ingresos?.bolivares || 0);
+        var vuelBs      = parseFloat(venta.vueltos?.montoBS    || 0);
+        totalDigitalBs += (bsRecibidos - vuelBs);
+
+        // ── 3. TARJETA DE VENTA — detalle simplificado ─────────────
+        var horaLimpia = venta.fecha
+            ? (venta.fecha.split(', ')[1] || venta.fecha)
+            : "--:--";
+
+        // Construir líneas de pago recibido (sin mostrar vueltos)
+        var lineasPago = '';
+        if (efecRecibido > 0) {
+            lineasPago += `<span class="hist-tag usd">💵 $${efecRecibido.toFixed(2)}</span>`;
+        }
+        if (bsRecibidos > 0) {
+            lineasPago += `<span class="hist-tag bs">📱 Bs ${this.fmt(bsRecibidos)}</span>`;
+        }
+        if (!lineasPago) {
+            lineasPago = `<span class="hist-tag">—</span>`;
+        }
 
         var itemDiv = document.createElement('div');
         itemDiv.className = 'hist-item-card';
-        
-        var horaLimpia = venta.fecha ? (venta.fecha.split(', ')[1] || venta.fecha) : "--:--";
-
         itemDiv.innerHTML = `
             <div class="hist-header-row" onclick="Calculadora.toggleDetalleHistorial(${index})">
                 <div>
-                    <span style="font-weight:600; font-size:14px; color:var(--text); display:block;">Venta #${index + 1}</span>
+                    <span style="font-weight:600; font-size:14px; color:var(--text); display:block;">
+                        Venta #${index + 1}
+                    </span>
                     <span style="font-size:12px; color:var(--text-muted);">${horaLimpia}</span>
                 </div>
                 <div style="text-align:right;">
-                    <span style="font-family:var(--font-num); font-weight:700; color:var(--green); font-size:15px;">+$${venta.montoFacturadoUSD.toFixed(2)}</span>
+                    <span style="font-family:var(--font-num); font-weight:700; color:var(--green); font-size:15px;">
+                        +$${parseFloat(venta.montoFacturadoUSD || 0).toFixed(2)}
+                    </span>
                     <span style="display:block; font-size:11px; color:var(--text-dim);">Ver detalles ›</span>
                 </div>
             </div>
             <div id="hist-detalle-${index}" class="hist-detalles-desplegable" style="display:none;">
-                <div>• <strong>Tasa BCV:</strong> Bs ${venta.tasaBCV} | <strong>Mercado:</strong> Bs ${venta.tasaMercado}</div>
-                <div>• <strong>Abonado USD:</strong> $${efectivoUSDRecibido.toFixed(2)}</div>
-                <div>• <strong>Abonado Bs:</strong> Bs ${this.fmt(venta.ingresos?.bolivares || 0)}</div>
-                <div style="color:var(--gold); font-weight:600;">• <strong>Vuelto USD:</strong> $${parseFloat(venta.vueltos?.montoUSD || 0).toFixed(2)} (${venta.vueltos?.medioUSD})</div>
-                <div style="color:var(--gold); font-weight:600;">• <strong>Vuelto Bs:</strong> Bs ${this.fmt(venta.vueltos?.montoBS || 0)} (${venta.vueltos?.medioBS})</div>
+                <div style="margin-bottom:6px;">${lineasPago}</div>
+                <div>• <strong>Tasa BCV:</strong> Bs ${venta.tasaBCV} 
+                     · <strong>Mercado:</strong> Bs ${venta.tasaMercado}</div>
             </div>
         `;
         listaContainer.appendChild(itemDiv);
     });
 
+    // ── 4. RENDERIZADO GERENCIAL DUAL ──────────────────────────────
     if (txtTotalUSD) txtTotalUSD.textContent = "$" + totalFacturadoUSD.toFixed(2);
     if (txtEfectivo) txtEfectivo.textContent = "$" + totalEfectivoUSD.toFixed(2);
-    
-    var currentBCV = parseFloat(localStorage.getItem(CONFIG.SK.BCV)) || CONFIG.DEFAULT_BCV;
-    var totalDigitalEnBs = totalDigitalUSD * currentBCV;
-    if (txtDigital) txtDigital.textContent = "Bs " + this.fmt(Math.max(0, totalDigitalEnBs));
+    if (txtDigital)  txtDigital.textContent  = "Bs " + this.fmt(Math.max(0, totalDigitalBs));
 },
 
 toggleDetalleHistorial(idx) {
