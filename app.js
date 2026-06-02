@@ -3,7 +3,6 @@
    Módulos: Config · ResetDiario · Licencia · PWA ·
             Tema · Drawer · ModalConfig · Onboarding ·
             ModoSelector · Metodos · Calculadora · App
-   Lógica financiera original 100% intacta.
    ═══════════════════════════════════════════════════ */
 
 /* ════════════════════════════════════════
@@ -28,9 +27,7 @@ const CONFIG = {
 };
 
 /* ════════════════════════════════════════
-   2. RESET DIARIO — Tasas se limpian al
-   cambiar el día (100% offline, usa el
-   reloj interno del teléfono)
+   2. RESET DIARIO
    ════════════════════════════════════════ */
 const ResetDiario = {
   hoy() {
@@ -61,25 +58,24 @@ const ResetDiario = {
    ════════════════════════════════════════ */
 const Licencia = {
   getID() {
-  try {
-    let id = localStorage.getItem(CONFIG.SK.DEVICE_ID);
-    if (id) return id;
-    const seed = [navigator.userAgent||'', screen.width+'x'+screen.height,
-      navigator.language||'', (navigator.hardwareConcurrency||0)+'',
-      new Date().getTimezoneOffset()+''].join('|');
-    let h = 5381;
-    for (let i = 0; i < seed.length; i++) h = (((h<<5)>>>0)+h+seed.charCodeAt(i))>>>0;
-    id = "VZ-" + h.toString(16).toUpperCase().padStart(8,'0');
-    localStorage.setItem(CONFIG.SK.DEVICE_ID, id);
-    return id;
-  } catch(e) {
-    // Sin localStorage: genera ID desde navegador sin guardarlo
-    let h = 5381;
-    const seed = (navigator.userAgent||'x') + screen.width + screen.height;
-    for (let i = 0; i < seed.length; i++) h = (((h<<5)>>>0)+h+seed.charCodeAt(i))>>>0;
-    return "VZ-" + h.toString(16).toUpperCase().padStart(8,'0');
-  }
-},
+    try {
+      let id = localStorage.getItem(CONFIG.SK.DEVICE_ID);
+      if (id) return id;
+      const seed = [navigator.userAgent||'', screen.width+'x'+screen.height,
+        navigator.language||'', (navigator.hardwareConcurrency||0)+'',
+        new Date().getTimezoneOffset()+''].join('|');
+      let h = 5381;
+      for (let i = 0; i < seed.length; i++) h = (((h<<5)>>>0)+h+seed.charCodeAt(i))>>>0;
+      id = "VZ-" + h.toString(16).toUpperCase().padStart(8,'0');
+      localStorage.setItem(CONFIG.SK.DEVICE_ID, id);
+      return id;
+    } catch(e) {
+      let h = 5381;
+      const seed = (navigator.userAgent||'x') + screen.width + screen.height;
+      for (let i = 0; i < seed.length; i++) h = (((h<<5)>>>0)+h+seed.charCodeAt(i))>>>0;
+      return "VZ-" + h.toString(16).toUpperCase().padStart(8,'0');
+    }
+  },
   genClave(id) {
     const base = id + CONFIG.SAL;
     let h = 5381;
@@ -90,14 +86,11 @@ const Licencia = {
     try { return localStorage.getItem(CONFIG.SK.LICENCIA) === 'true'; } catch(e) { return false; }
   },
   mostrarMuro() {
-  const el = document.getElementById('mi-id-display');
-  if (el) {
-    // Pequeño delay para que el DOM esté listo
-    setTimeout(() => {
-      el.textContent = this.getID();
-    }, 100);
-  }
-},
+    const el = document.getElementById('mi-id-display');
+    if (el) {
+      setTimeout(() => { el.textContent = this.getID(); }, 100);
+    }
+  },
   pedirAcceso() {
     const n = (document.getElementById('reg-nom').value||'').trim();
     const c = (document.getElementById('reg-ci').value||'').trim();
@@ -166,8 +159,7 @@ const InstallPWA = {
 };
 
 /* ════════════════════════════════════════
-   5. TEMA claro/oscuro — persiste en
-   localStorage, se aplica antes del paint
+   5. TEMA
    ════════════════════════════════════════ */
 const Tema = {
   actual: 'light',
@@ -195,7 +187,6 @@ const Drawer = {
     document.getElementById('drawer').classList.add('open');
     document.getElementById('drawer-overlay').classList.add('open');
     document.body.style.overflow = 'hidden';
-    // Actualizar subtítulos
     const bcv     = parseFloat(localStorage.getItem(CONFIG.SK.BCV)    || CONFIG.DEFAULT_BCV);
     const mercado = parseFloat(localStorage.getItem(CONFIG.SK.MERCADO) || CONFIG.DEFAULT_MERCADO);
     const sub = document.getElementById('drawer-tasas-sub');
@@ -211,7 +202,7 @@ const Drawer = {
 };
 
 /* ════════════════════════════════════════
-   7. MODAL CONFIG (tasas + modo)
+   7. MODAL CONFIG
    ════════════════════════════════════════ */
 const ModalConfig = {
   abrirTasas() {
@@ -354,13 +345,8 @@ const ModoSelector = {
 };
 
 /* ════════════════════════════════════════
-   10. MÉTODOS DE PAGO — sistema dinámico
-   Cada fila tiene: selector + monto + botón X
-   Internamente alimenta abonoBS o abonoUSD
-   según el método seleccionado.
+   10. MÉTODOS DE PAGO
    ════════════════════════════════════════ */
-
-// Definición de métodos disponibles
 const METODOS = {
   bs: [
     { value: 'pago_movil',    label: '📱 Pago móvil' },
@@ -376,22 +362,26 @@ const METODOS = {
   ]
 };
 
-// Todos los métodos con su moneda
 const METODO_MAP = {};
 METODOS.bs.forEach(m  => { METODO_MAP[m.value] = 'bs'; });
 METODOS.usd.forEach(m => { METODO_MAP[m.value] = 'usd'; });
 
-let _filaId = 0; // contador único para cada fila
+// Métodos que se consideran "efectivo físico"
+const METODOS_EFECTIVO_USD = ['efectivo_usd'];
+const METODOS_EFECTIVO_BS  = ['efectivo_bs'];
+// Métodos digitales USD: Zelle, Binance, USDT
+const METODOS_DIGITAL_USD  = ['zelle', 'binance', 'usdt'];
+// Métodos digitales Bs: Pago móvil, Transferencia, Tarjeta
+const METODOS_DIGITAL_BS   = ['pago_movil', 'transferencia', 'tarjeta'];
+
+let _filaId = 0;
 
 const Metodos = {
-
-  /* Agrega una nueva fila de método de pago */
   agregar() {
     const id = ++_filaId;
     const wrap = document.getElementById('metodos-wrap');
     if (!wrap) return;
 
-    // Construir opciones del select
     let opcionesBs  = METODOS.bs.map(m  => `<option value="${m.value}">${m.label}</option>`).join('');
     let opcionesUsd = METODOS.usd.map(m => `<option value="${m.value}">${m.label}</option>`).join('');
 
@@ -412,7 +402,6 @@ const Metodos = {
     `;
     wrap.appendChild(fila);
 
-    // Foco en el campo de monto
     setTimeout(() => {
       const input = document.getElementById(`monto-${id}`);
       if (input) input.focus();
@@ -421,7 +410,6 @@ const Metodos = {
     Calculadora.calc();
   },
 
-  /* Cuando cambia el selector, actualiza el badge de moneda */
   onCambioMetodo(id) {
     const sel   = document.getElementById(`sel-${id}`);
     const badge = document.getElementById(`badge-${id}`);
@@ -437,7 +425,6 @@ const Metodos = {
     Calculadora.calc();
   },
 
-  /* Elimina una fila con animación de salida */
   eliminar(id) {
     const fila = document.getElementById(`fila-${id}`);
     if (!fila) return;
@@ -447,8 +434,6 @@ const Metodos = {
     setTimeout(() => { fila.remove(); Calculadora.calc(); }, 180);
   },
 
-  /* Recolecta todos los abonos actuales y los suma por moneda
-     Retorna { abonoBS: number, abonoUSD: number } */
   getAbonos() {
     let abonoBS  = 0;
     let abonoUSD = 0;
@@ -471,7 +456,37 @@ const Metodos = {
     return { abonoBS, abonoUSD };
   },
 
-  /* Limpia todas las filas */
+  /* Devuelve el detalle completo de cada pago con su método específico */
+  getDetallePagos() {
+    const pagos = [];
+    const wrap = document.getElementById('metodos-wrap');
+    if (!wrap) return pagos;
+
+    wrap.querySelectorAll('.metodo-fila').forEach(fila => {
+      const idMatch = fila.id.match(/fila-(\d+)/);
+      if (!idMatch) return;
+      const id     = idMatch[1];
+      const sel    = document.getElementById(`sel-${id}`);
+      const input  = document.getElementById(`monto-${id}`);
+      if (!sel || !input) return;
+      const val    = parseFloat(input.value) || 0;
+      if (val <= 0) return;
+      const metodoVal = sel.value;
+      const moneda    = METODO_MAP[metodoVal] || 'bs';
+      // Buscar el label del método
+      const allMetodos = [...METODOS.bs, ...METODOS.usd];
+      const metodoInfo = allMetodos.find(m => m.value === metodoVal);
+      pagos.push({
+        metodo: metodoVal,
+        label:  metodoInfo ? metodoInfo.label : metodoVal,
+        moneda: moneda,
+        monto:  val
+      });
+    });
+
+    return pagos;
+  },
+
   limpiar() {
     const wrap = document.getElementById('metodos-wrap');
     if (wrap) wrap.innerHTML = '';
@@ -479,10 +494,7 @@ const Metodos = {
 };
 
 /* ════════════════════════════════════════
-   11. CALCULADORA — Lógica financiera
-   ORIGINAL INTACTA. No se modifican
-   fórmulas. Solo se leen los abonos
-   desde el módulo Metodos.
+   11. CALCULADORA
    ════════════════════════════════════════ */
 const Calculadora = {
 
@@ -490,413 +502,414 @@ const Calculadora = {
     return n.toLocaleString('es-VE', { minimumFractionDigits: 2 });
   },
 
-  /* Redondeo al medio dólar superior — ORIGINAL
-     2.00→2.00 | 2.01→2.50 | 2.51→3.00 */
   redondearUSD(n) {
-  return Math.round(n * 100) / 100;
-},
+    return Math.round(n * 100) / 100;
+  },
 
   setVal(id, txt) {
     const el = document.getElementById(id);
     if (el) { el.textContent = txt; el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
   },
 
-calc() {
-    var bcv = parseFloat(localStorage.getItem(CONFIG.SK.BCV)) || CONFIG.DEFAULT_BCV;
+  calc() {
+    var bcv     = parseFloat(localStorage.getItem(CONFIG.SK.BCV))     || CONFIG.DEFAULT_BCV;
     var mercado = parseFloat(localStorage.getItem(CONFIG.SK.MERCADO)) || CONFIG.DEFAULT_MERCADO;
-    var loyEl = document.getElementById('loyverse');
-    var loy = loyEl ? (parseFloat(loyEl.value) || 0) : 0; // Ejemplo: $20 base
-    
-    var abonos = Metodos.getAbonos();
-    var abonoBS = abonos.abonoBS;   // Ejemplo: 5000 Bs
-    var abonoUSD = abonos.abonoUSD; // Ejemplo: El billete que entrega
-    
-    var factor = bcv > 0 ? mercado / bcv : 1;
-    var tasaEfectiva = ModoSelector.modoActual === 'protected' ? factor : 1;
-    
-    // 1. PRECIOS INICIALES DE REFERENCIA
-    var precioEnBs = loy * bcv; // Ejemplo: $20 * 530 = 10,600 Bs (SI O SI FIJO)
-    var especial = tasaEfectiva > 0 ? loy / tasaEfectiva : 0; // Precio inflado en $
-    
-    Calculadora.setVal('precioBs', 'Bs ' + Calculadora.fmt(precioEnBs));
-    Calculadora.setVal('precioEspecial', '$' + especial.toFixed(2));
+    var loyEl   = document.getElementById('loyverse');
+    var loy     = loyEl ? (parseFloat(loyEl.value) || 0) : 0;
 
-    // 2. MATEMÁTICA ESTRICTA PARA "POR COBRAR BOLÍVARES" (PROTECCIÓN DE CAJA)
+    var abonos   = Metodos.getAbonos();
+    var abonoBS  = abonos.abonoBS;
+    var abonoUSD = abonos.abonoUSD;
+
+    var factor        = bcv > 0 ? mercado / bcv : 1;
+    var tasaEfectiva  = ModoSelector.modoActual === 'protected' ? factor : 1;
+
+    var precioEnBs   = loy * bcv;
+    var especial     = tasaEfectiva > 0 ? loy / tasaEfectiva : 0;
+
+    Calculadora.setVal('precioBs',      'Bs ' + Calculadora.fmt(precioEnBs));
+    Calculadora.setVal('precioEspecial','$'   + especial.toFixed(2));
+
     var abonoUSDenBsMercado = abonoUSD * mercado;
     var cobrarBS = precioEnBs - abonoBS - abonoUSDenBsMercado;
-    cobrarBS = Math.max(0, cobrarBS); // Evita números negativos en pantalla
+    cobrarBS = Math.max(0, cobrarBS);
 
-    // 3. MATEMÁTICA ESTRICTA PARA "POR COBRAR DÓLARES" (PAGO EN DIVISAS SIN BRECHA)
-    var deudaRestanteEnBs = precioEnBs - abonoBS; 
-    var saldoRealPorCobrarUSD = deudaRestanteEnBs > 0 ? (deudaRestanteEnBs / mercado) : 0;
+    var deudaRestanteEnBs      = precioEnBs - abonoBS;
+    var saldoRealPorCobrarUSD  = deudaRestanteEnBs > 0 ? (deudaRestanteEnBs / mercado) : 0;
 
-    var cobrarUSD = 0;
+    var cobrarUSD        = 0;
     var vueltoTotalEnUSD = 0;
 
     if (abonoUSD > saldoRealPorCobrarUSD) {
-        vueltoTotalEnUSD = abonoUSD - saldoRealPorCobrarUSD;
-        cobrarUSD = 0;
+      vueltoTotalEnUSD = abonoUSD - saldoRealPorCobrarUSD;
+      cobrarUSD = 0;
     } else {
-        vueltoTotalEnUSD = 0;
-        cobrarUSD = saldoRealPorCobrarUSD - abonoUSD;
+      vueltoTotalEnUSD = 0;
+      cobrarUSD = saldoRealPorCobrarUSD - abonoUSD;
     }
 
-    // 4. ENVIAR DATOS A LA INTERFAZ VISUAL
     Calculadora.actualizarEstado(loy, cobrarBS, cobrarUSD, bcv, mercado, abonoBS, abonoUSD, vueltoTotalEnUSD);
-
-    // Mostrar en los campos de "Por Cobrar" de tu HTML
-    Calculadora.setVal('cobrarBS', Calculadora.fmt(cobrarBS));
+    Calculadora.setVal('cobrarBS',  Calculadora.fmt(cobrarBS));
     Calculadora.setVal('cobrarUSD', cobrarUSD.toFixed(2));
-},
+  },
 
-abrirHistorialPanel() {
+  abrirHistorialPanel() {
     if (typeof cerrarDrawer === "function") cerrarDrawer();
     var panel = document.getElementById('historial-panel');
     if (panel) panel.style.display = 'block';
     this.renderizarHistorial();
-},
+  },
 
-cerrarHistorialPanel() {
+  cerrarHistorialPanel() {
     var panel = document.getElementById('historial-panel');
     if (panel) panel.style.display = 'none';
-},
+  },
 
-renderizarHistorial() {
-    var historial = JSON.parse(localStorage.getItem('vexacto_historial')) || [];
+  /* ── HISTORIAL REESCRITO ────────────────────────────────────────
+     4 cubetas puras: Efectivo USD · Digital USD · Efectivo Bs · Digital Bs
+     Totales separados por moneda al final.
+     Detalle simplificado: hora + métodos recibidos (sin vueltos).
+  ─────────────────────────────────────────────────────────────── */
+  renderizarHistorial() {
+    var historial      = JSON.parse(localStorage.getItem('vexacto_historial')) || [];
     var listaContainer = document.getElementById('historial-lista-container');
     var txtTotalUSD    = document.getElementById('hist-total-usd');
     var txtContador    = document.getElementById('hist-contador');
     var txtFecha       = document.getElementById('hist-fecha-dia');
-    var txtEfectivo    = document.getElementById('hist-efectivo-real');
-    var txtDigital     = document.getElementById('hist-digital-real');
+    var txtEfecUSD     = document.getElementById('hist-efectivo-real');      // 💵 Efectivo USD
+    var txtDigiUSD     = document.getElementById('hist-digital-usd');        // 💜 Digital USD
+    var txtEfecBS      = document.getElementById('hist-efectivo-bs');        // 💵 Efectivo Bs
+    var txtDigiBS      = document.getElementById('hist-digital-real');       // 📱 Digital Bs
+    var txtTotalBs     = document.getElementById('hist-total-bs');           // TOTAL Bs
 
     if (!listaContainer) return;
 
-    if (txtFecha) txtFecha.textContent = "Caja del día: " + new Date().toLocaleDateString('es-VE');
+    if (txtFecha)    txtFecha.textContent    = "Caja del día: " + new Date().toLocaleDateString('es-VE');
     if (txtContador) txtContador.textContent = historial.length + " cobros";
 
-    // ── 1. ACUMULADORES PUROS ──────────────────────────────────────
-    var totalFacturadoUSD = 0;
-    var totalEfectivoUSD  = 0;
-    var totalDigitalBs    = 0;
+    // ── ACUMULADORES PUROS ─────────────────────────────────────
+    var totalTransUSD = 0;  // suma de precios de vitrina
+    var efectivoUSD   = 0;  // 💵 USD físico neto
+    var digitalUSD    = 0;  // 💜 Zelle / Binance / USDT neto
+    var efectivoBS    = 0;  // 💵 Bs físico neto
+    var digitalBS     = 0;  // 📱 Pago móvil / Transferencia / Tarjeta neto
 
     listaContainer.innerHTML = "";
 
     if (historial.length === 0) {
-        listaContainer.innerHTML = `<div style="text-align:center; padding:30px; color:var(--text-dim); font-size:14px;">No hay cobros registrados el día de hoy.</div>`;
-        if (txtTotalUSD) txtTotalUSD.textContent = "$0.00";
-        if (txtEfectivo) txtEfectivo.textContent = "$0.00";
-        if (txtDigital)  txtDigital.textContent  = "Bs 0,00";
-        return;
+      listaContainer.innerHTML = `<div style="text-align:center;padding:30px;color:var(--text-dim);font-size:14px;">No hay cobros registrados el día de hoy.</div>`;
+      if (txtTotalUSD) txtTotalUSD.textContent = "$0.00";
+      if (txtEfecUSD)  txtEfecUSD.textContent  = "$0.00";
+      if (txtDigiUSD)  txtDigiUSD.textContent  = "$0.00";
+      if (txtEfecBS)   txtEfecBS.textContent   = "Bs 0,00";
+      if (txtDigiBS)   txtDigiBS.textContent   = "Bs 0,00";
+      if (txtTotalBs)  txtTotalBs.textContent  = "Bs 0,00";
+      return;
     }
 
     historial.forEach((venta, index) => {
 
-        // ── 2. ACUMULACIÓN POR VENTA ───────────────────────────────
+      // ── ACUMULACIÓN POR CUBETA ───────────────────────────────
+      totalTransUSD += parseFloat(venta.montoFacturadoUSD || 0);
 
-        // Total facturado (precio vitrina)
-        totalFacturadoUSD += parseFloat(venta.montoFacturadoUSD || 0);
+      // Los pagos ahora son un array con detalle por método
+      var pagos = venta.pagos || [];
 
-        // Neto efectivo USD: lo que entró físicamente menos lo que salió
-        var efecRecibido = parseFloat(venta.ingresos?.efectivoUSD || 0);
-        var vuelUSD      = parseFloat(venta.vueltos?.montoUSD     || 0);
-        totalEfectivoUSD += (efecRecibido - vuelUSD);
-
-        // Neto digital Bs: lo que entró por banca menos vuelto en Bs
-        var bsRecibidos = parseFloat(venta.ingresos?.bolivares || 0);
-        var vuelBs      = parseFloat(venta.vueltos?.montoBS    || 0);
-        totalDigitalBs += (bsRecibidos - vuelBs);
-
-        // ── 3. TARJETA DE VENTA — detalle simplificado ─────────────
-        var horaLimpia = venta.fecha
-            ? (venta.fecha.split(', ')[1] || venta.fecha)
-            : "--:--";
-
-        // Construir líneas de pago recibido (sin mostrar vueltos)
-        var lineasPago = '';
-        if (efecRecibido > 0) {
-            lineasPago += `<span class="hist-tag usd">💵 $${efecRecibido.toFixed(2)}</span>`;
+      pagos.forEach(function(pago) {
+        var monto = parseFloat(pago.monto || 0);
+        if (METODOS_EFECTIVO_USD.includes(pago.metodo)) {
+          efectivoUSD += monto;
+        } else if (METODOS_DIGITAL_USD.includes(pago.metodo)) {
+          digitalUSD  += monto;
+        } else if (METODOS_EFECTIVO_BS.includes(pago.metodo)) {
+          efectivoBS  += monto;
+        } else if (METODOS_DIGITAL_BS.includes(pago.metodo)) {
+          digitalBS   += monto;
         }
-        if (bsRecibidos > 0) {
-            lineasPago += `<span class="hist-tag bs">📱 Bs ${this.fmt(bsRecibidos)}</span>`;
-        }
-        if (!lineasPago) {
-            lineasPago = `<span class="hist-tag">—</span>`;
-        }
+      });
 
-        var itemDiv = document.createElement('div');
-        itemDiv.className = 'hist-item-card';
-        itemDiv.innerHTML = `
-            <div class="hist-header-row" onclick="Calculadora.toggleDetalleHistorial(${index})">
-                <div>
-                    <span style="font-weight:600; font-size:14px; color:var(--text); display:block;">
-                        Venta #${index + 1}
-                    </span>
-                    <span style="font-size:12px; color:var(--text-muted);">${horaLimpia}</span>
-                </div>
-                <div style="text-align:right;">
-                    <span style="font-family:var(--font-num); font-weight:700; color:var(--green); font-size:15px;">
-                        +$${parseFloat(venta.montoFacturadoUSD || 0).toFixed(2)}
-                    </span>
-                    <span style="display:block; font-size:11px; color:var(--text-dim);">Ver detalles ›</span>
-                </div>
-            </div>
-            <div id="hist-detalle-${index}" class="hist-detalles-desplegable" style="display:none;">
-                <div style="margin-bottom:6px;">${lineasPago}</div>
-                <div>• <strong>Tasa BCV:</strong> Bs ${venta.tasaBCV} 
-                     · <strong>Mercado:</strong> Bs ${venta.tasaMercado}</div>
-            </div>
-        `;
-        listaContainer.appendChild(itemDiv);
+      // Descontar vueltos de sus cubetas correspondientes
+      var vuelUSD = parseFloat(venta.vueltos?.montoUSD || 0);
+      var vuelBS  = parseFloat(venta.vueltos?.montoBS  || 0);
+      efectivoUSD -= vuelUSD;  // el vuelto USD sale de la gaveta física
+      digitalBS   -= vuelBS;   // el vuelto Bs sale de la cuenta digital
+
+      // ── TARJETA DE VENTA SIMPLIFICADA ───────────────────────
+      var horaLimpia = venta.fecha
+        ? (venta.fecha.split(', ')[1] || venta.fecha)
+        : "--:--";
+
+      // Construir tags de métodos recibidos
+      var tagsPago = '';
+      if (pagos.length > 0) {
+        pagos.forEach(function(pago) {
+          var esUSD = METODO_MAP[pago.metodo] === 'usd';
+          var montoFmt = esUSD
+            ? '$' + parseFloat(pago.monto).toFixed(2)
+            : 'Bs ' + Calculadora.fmt(parseFloat(pago.monto));
+          tagsPago += `<span class="hist-tag ${esUSD ? 'usd' : 'bs'}">${pago.label} ${montoFmt}</span>`;
+        });
+      } else {
+        // Compatibilidad con ventas antiguas guardadas sin array pagos
+        var efecViejoUSD = parseFloat(venta.ingresos?.efectivoUSD || 0);
+        var bsViejos     = parseFloat(venta.ingresos?.bolivares   || 0);
+        if (efecViejoUSD > 0) tagsPago += `<span class="hist-tag usd">💵 $${efecViejoUSD.toFixed(2)}</span>`;
+        if (bsViejos > 0)     tagsPago += `<span class="hist-tag bs">📱 Bs ${Calculadora.fmt(bsViejos)}</span>`;
+        if (!tagsPago)        tagsPago  = `<span class="hist-tag">—</span>`;
+      }
+
+      var itemDiv = document.createElement('div');
+      itemDiv.className = 'hist-item-card';
+      itemDiv.innerHTML = `
+        <div class="hist-header-row" onclick="Calculadora.toggleDetalleHistorial(${index})">
+          <div>
+            <span style="font-weight:600;font-size:14px;color:var(--text);display:block;">Venta #${index + 1}</span>
+            <span style="font-size:12px;color:var(--text-muted);">${horaLimpia}</span>
+          </div>
+          <div style="text-align:right;">
+            <span style="font-family:var(--font-num);font-weight:700;color:var(--green);font-size:15px;">
+              +$${parseFloat(venta.montoFacturadoUSD || 0).toFixed(2)}
+            </span>
+            <span style="display:block;font-size:11px;color:var(--text-dim);">Ver detalles ›</span>
+          </div>
+        </div>
+        <div id="hist-detalle-${index}" class="hist-detalles-desplegable" style="display:none;">
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;">${tagsPago}</div>
+          <div style="font-size:11px;color:var(--text-dim);">
+            BCV: Bs ${venta.tasaBCV} · Mercado: Bs ${venta.tasaMercado}
+          </div>
+        </div>
+      `;
+      listaContainer.appendChild(itemDiv);
     });
 
-    // ── 4. RENDERIZADO GERENCIAL DUAL ──────────────────────────────
-    if (txtTotalUSD) txtTotalUSD.textContent = "$" + totalFacturadoUSD.toFixed(2);
-    if (txtEfectivo) txtEfectivo.textContent = "$" + totalEfectivoUSD.toFixed(2);
-    if (txtDigital)  txtDigital.textContent  = "Bs " + this.fmt(Math.max(0, totalDigitalBs));
-},
+    // ── TOTALES FINALES ────────────────────────────────────────
+    var totalBs = Math.max(0, efectivoBS) + Math.max(0, digitalBS);
 
-toggleDetalleHistorial(idx) {
+    if (txtTotalUSD) txtTotalUSD.textContent = "$" + totalTransUSD.toFixed(2);
+    if (txtEfecUSD)  txtEfecUSD.textContent  = "$" + Math.max(0, efectivoUSD).toFixed(2);
+    if (txtDigiUSD)  txtDigiUSD.textContent  = "$" + Math.max(0, digitalUSD).toFixed(2);
+    if (txtEfecBS)   txtEfecBS.textContent   = "Bs " + this.fmt(Math.max(0, efectivoBS));
+    if (txtDigiBS)   txtDigiBS.textContent   = "Bs " + this.fmt(Math.max(0, digitalBS));
+    if (txtTotalBs)  txtTotalBs.textContent  = "Bs " + this.fmt(totalBs);
+  },
+
+  toggleDetalleHistorial(idx) {
     var el = document.getElementById('hist-detalle-' + idx);
     if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
-},
+  },
 
-exportarHistorial() {
+  exportarHistorial() {
     var historial = JSON.parse(localStorage.getItem('vexacto_historial')) || [];
-    if(historial.length === 0) return alert("No hay datos para exportar.");
-    
+    if (historial.length === 0) return alert("No hay datos para exportar.");
+
     var textoReporte = "REPORTE DE COBROS VEXACTO\n=========================\n\n";
     historial.forEach((v, i) => {
-        textoReporte += `VENTA #${i+1} - Horario: ${v.fecha}\n`;
-        textoReporte += `Monto Base: $${v.montoFacturadoUSD.toFixed(2)}\n`;
-        textoReporte += `Ingresos: $${v.ingresos?.efectivoUSD} | Bs ${v.ingresos?.bolivares}\n`;
-        textoReporte += `Vueltos: $${v.vueltos?.montoUSD} (${v.vueltos?.medioUSD}) | Bs ${v.vueltos?.montoBS} (${v.vueltos?.medioBS})\n`;
-        textoReporte += `-----------------------------------------\n`;
+      textoReporte += `VENTA #${i+1} - ${v.fecha}\n`;
+      textoReporte += `Monto: $${parseFloat(v.montoFacturadoUSD).toFixed(2)}\n`;
+      var pagos = v.pagos || [];
+      if (pagos.length > 0) {
+        pagos.forEach(function(p) {
+          var esUSD = METODO_MAP[p.metodo] === 'usd';
+          textoReporte += `  · ${p.label}: ${esUSD ? '$' : 'Bs '}${parseFloat(p.monto).toFixed(2)}\n`;
+        });
+      } else {
+        textoReporte += `  · USD: $${v.ingresos?.efectivoUSD || 0}\n`;
+        textoReporte += `  · Bs: ${v.ingresos?.bolivares || 0}\n`;
+      }
+      textoReporte += `-----------------------------------------\n`;
     });
-    
+
     var blob = new Blob([textoReporte], { type: "text/plain;charset=utf-8" });
     var link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = `Cierre_Caja_${new Date().toISOString().split('T')[0]}.txt`;
     link.click();
-},
+  },
 
-resetCajaDiaria() {
+  resetCajaDiaria() {
     if (confirm("¿Estás seguro de que deseas archivar y borrar los cobros de hoy? Esto dejará la caja en cero.")) {
-        localStorage.removeItem('vexacto_historial');
-        alert("Caja reiniciada con éxito.");
-        this.renderizarHistorial();
+      localStorage.removeItem('vexacto_historial');
+      alert("Caja reiniciada con éxito.");
+      this.renderizarHistorial();
     }
-},
+  },
 
-
-
-actualizarEstado(loy, cobrarBS, cobrarUSD, bcv, mercado, abonoBS, abonoUSD, vueltoTotalEnUSD) {
-    var statusEl = document.getElementById('resumen-status');
-    var vueltoSec = document.getElementById('vuelto-section');
-    var vueltoAmt = document.getElementById('vuelto-amount');
-    
-    // Traer los nuevos elementos del botón y los selectores ocultos
-    var btnCerrar = document.getElementById('btn-cerrar-venta');
+  actualizarEstado(loy, cobrarBS, cobrarUSD, bcv, mercado, abonoBS, abonoUSD, vueltoTotalEnUSD) {
+    var statusEl    = document.getElementById('resumen-status');
+    var vueltoSec   = document.getElementById('vuelto-section');
+    var vueltoAmt   = document.getElementById('vuelto-amount');
+    var btnCerrar   = document.getElementById('btn-cerrar-venta');
     var optVueltoUSD = document.getElementById('vuelto-opcion-usd');
-    var optVueltoBS = document.getElementById('vuelto-opcion-bs');
+    var optVueltoBS  = document.getElementById('vuelto-opcion-bs');
 
     if (!statusEl) return;
 
     if (loy <= 0) {
-        statusEl.textContent = 'Ingresa un monto';
-        statusEl.className = 'resumen-status vacio';
-        if (vueltoSec) vueltoSec.style.display = 'none';
-        if (btnCerrar) {
-            btnCerrar.disabled = true;
-            btnCerrar.style.backgroundColor = '#333';
-            btnCerrar.style.color = '#777';
-            btnCerrar.style.cursor = 'not-allowed';
-        }
-        return;
+      statusEl.textContent = 'Ingresa un monto';
+      statusEl.className   = 'resumen-status vacio';
+      if (vueltoSec) vueltoSec.style.display = 'none';
+      if (btnCerrar) {
+        btnCerrar.disabled = true;
+        btnCerrar.style.backgroundColor = '#333';
+        btnCerrar.style.color  = '#777';
+        btnCerrar.style.cursor = 'not-allowed';
+      }
+      return;
     }
 
-    // Si no se ha registrado ningún pago todavía
     if (abonoBS === 0 && abonoUSD === 0) {
-        if (vueltoSec) vueltoSec.style.display = 'none';
-        if (optVueltoUSD) optVueltoUSD.style.display = 'none';
-        if (optVueltoBS) optVueltoBS.style.display = 'none';
-        
-        statusEl.textContent = 'Pendiente';
-        statusEl.className = 'resumen-status pendiente';
-        
-        if (btnCerrar) {
-            btnCerrar.disabled = true;
-            btnCerrar.style.backgroundColor = '#333';
-            btnCerrar.style.color = '#777';
-            btnCerrar.style.cursor = 'not-allowed';
-        }
-        return;
+      if (vueltoSec)    vueltoSec.style.display    = 'none';
+      if (optVueltoUSD) optVueltoUSD.style.display = 'none';
+      if (optVueltoBS)  optVueltoBS.style.display  = 'none';
+      statusEl.textContent = 'Pendiente';
+      statusEl.className   = 'resumen-status pendiente';
+      if (btnCerrar) {
+        btnCerrar.disabled = true;
+        btnCerrar.style.backgroundColor = '#333';
+        btnCerrar.style.color  = '#777';
+        btnCerrar.style.cursor = 'not-allowed';
+      }
+      return;
     }
 
-    // LÓGICA DE VUELTO MIXTO (Dólares enteros + Fracción a BCV)
     if (vueltoTotalEnUSD > 0.009) {
-        if (vueltoSec) vueltoSec.style.display = 'block';
+      if (vueltoSec) vueltoSec.style.display = 'block';
 
-var vueltoUSD = Math.floor(vueltoTotalEnUSD); // Billetes de $1, $5 enteros
-var centavosUSD = vueltoTotalEnUSD - vueltoUSD; // Fracción decimal sobrante
-var vueltoBS = parseFloat((centavosUSD * bcv).toFixed(2)); // <--- CORREGIDO A 2 DECIMALES
+      var vueltoUSD  = Math.floor(vueltoTotalEnUSD);
+      var centavosUSD = vueltoTotalEnUSD - vueltoUSD;
+      var vueltoBS   = parseFloat((centavosUSD * bcv).toFixed(2));
 
+      var hayVueltoUSD = vueltoUSD >= 1;
+      var hayVueltoBS  = vueltoBS  > 0.05;
 
-        var hayVueltoUSD = vueltoUSD >= 1;
-        var hayVueltoBS = vueltoBS > 0.05;
+      if (optVueltoUSD) optVueltoUSD.style.display = hayVueltoUSD ? 'block' : 'none';
+      if (optVueltoBS)  optVueltoBS.style.display  = hayVueltoBS  ? 'block' : 'none';
 
-        if (optVueltoUSD) optVueltoUSD.style.display = hayVueltoUSD ? 'block' : 'none';
-        if (optVueltoBS) optVueltoBS.style.display = hayVueltoBS ? 'block' : 'none';
+      var lineas = '';
+      if (hayVueltoUSD) lineas += `<div class="vuelto-linea usd">USD <span>$${vueltoUSD.toFixed(0)}.00</span></div>`;
+      if (hayVueltoUSD && hayVueltoBS) lineas += '<div class="vuelto-mas">+</div>';
+      if (hayVueltoBS)  lineas += `<div class="vuelto-linea bs">Bs <span>${Calculadora.fmt(vueltoBS)}</span></div>`;
 
-        var lineas = '';
-        if (hayVueltoUSD) {
-            lineas += '<div class="vuelto-linea usd">USD <span>$' + vueltoUSD.toFixed(0) + '.00</span></div>';
-        }
-        if (hayVueltoUSD && hayVueltoBS) {
-            lineas += '<div class="vuelto-mas">+</div>';
-        }
-        if (hayVueltoBS) {
-            lineas += '<div class="vuelto-linea bs">Bs <span>' + Calculadora.fmt(vueltoBS) + '</span></div>';
-        }
+      if (vueltoAmt) vueltoAmt.innerHTML = lineas;
+      statusEl.textContent = '↩ Dar vuelto';
+      statusEl.className   = 'resumen-status vuelto';
 
-        if (vueltoAmt) vueltoAmt.innerHTML = lineas;
-        statusEl.textContent = '↩ Dar vuelto';
-        statusEl.className = 'resumen-status vuelto';
+      if (btnCerrar) {
+        btnCerrar.disabled = false;
+        btnCerrar.style.backgroundColor = '#28a745';
+        btnCerrar.style.color  = '#fff';
+        btnCerrar.style.cursor = 'pointer';
+      }
 
-        // Habilitar botón de cierre en COLOR VERDE para dar vuelto
-        if (btnCerrar) {
-            btnCerrar.disabled = false;
-            btnCerrar.style.backgroundColor = '#28a745'; 
-            btnCerrar.style.color = '#fff';
-            btnCerrar.style.cursor = 'pointer';
-        }
-    } 
-    // Si la deuda ya se cubrió por completo sin dejar vueltos significativos
-    else if (cobrarBS < 0.1 && cobrarUSD < 0.01) {
-        if (vueltoSec) vueltoSec.style.display = 'none';
-        if (optVueltoUSD) optVueltoUSD.style.display = 'none';
-        if (optVueltoBS) optVueltoBS.style.display = 'none';
-        
-        statusEl.textContent = '✓ Cobro completo';
-        statusEl.className = 'resumen-status completo';
+    } else if (cobrarBS < 0.1 && cobrarUSD < 0.01) {
+      if (vueltoSec)    vueltoSec.style.display    = 'none';
+      if (optVueltoUSD) optVueltoUSD.style.display = 'none';
+      if (optVueltoBS)  optVueltoBS.style.display  = 'none';
+      statusEl.textContent = '✓ Cobro completo';
+      statusEl.className   = 'resumen-status completo';
 
-        // Habilitar botón de cierre en COLOR AZUL para cobro exacto
-        if (btnCerrar) {
-            btnCerrar.disabled = false;
-            btnCerrar.style.backgroundColor = '#007bff'; 
-            btnCerrar.style.color = '#fff';
-            btnCerrar.style.cursor = 'pointer';
-        }
-    } 
-    // Si todavía queda dinero pendiente por abonar
-    else {
-        if (vueltoSec) vueltoSec.style.display = 'none';
-        if (optVueltoUSD) optVueltoUSD.style.display = 'none';
-        if (optVueltoBS) optVueltoBS.style.display = 'none';
+      if (btnCerrar) {
+        btnCerrar.disabled = false;
+        btnCerrar.style.backgroundColor = '#007bff';
+        btnCerrar.style.color  = '#fff';
+        btnCerrar.style.cursor = 'pointer';
+      }
 
-        statusEl.textContent = 'Pendiente';
-        statusEl.className = 'resumen-status pendiente';
+    } else {
+      if (vueltoSec)    vueltoSec.style.display    = 'none';
+      if (optVueltoUSD) optVueltoUSD.style.display = 'none';
+      if (optVueltoBS)  optVueltoBS.style.display  = 'none';
+      statusEl.textContent = 'Pendiente';
+      statusEl.className   = 'resumen-status pendiente';
 
-        // Bloquear botón si el cobro sigue incompleto
-        if (btnCerrar) {
-            btnCerrar.disabled = true;
-            btnCerrar.style.backgroundColor = '#333';
-            btnCerrar.style.color = '#777';
-            btnCerrar.style.cursor = 'not-allowed';
-        }
+      if (btnCerrar) {
+        btnCerrar.disabled = true;
+        btnCerrar.style.backgroundColor = '#333';
+        btnCerrar.style.color  = '#777';
+        btnCerrar.style.cursor = 'not-allowed';
+      }
     }
-},
-procesarCierreVenta() {
-    var bcv = parseFloat(localStorage.getItem(CONFIG.SK.BCV)) || CONFIG.DEFAULT_BCV;
+  },
+
+  /* ── CIERRE DE VENTA — guarda pagos con detalle por método ── */
+  procesarCierreVenta() {
+    var bcv     = parseFloat(localStorage.getItem(CONFIG.SK.BCV))     || CONFIG.DEFAULT_BCV;
     var mercado = parseFloat(localStorage.getItem(CONFIG.SK.MERCADO)) || CONFIG.DEFAULT_MERCADO;
-    var loyEl = document.getElementById('loyverse');
-    var loy = loyEl ? (parseFloat(loyEl.value) || 0) : 0; // El $20 base
+    var loyEl   = document.getElementById('loyverse');
+    var loy     = loyEl ? (parseFloat(loyEl.value) || 0) : 0;
 
-    // CORRECCIÓN SEGURA: Usamos el método nativo de tu app para leer los abonos reales
-    var abonos = typeof Metodos.getAbonos === 'function' ? Metodos.getAbonos() : { abonoBS: 0, abonoUSD: 0 };
+    var abonos   = typeof Metodos.getAbonos === 'function' ? Metodos.getAbonos() : { abonoBS: 0, abonoUSD: 0 };
     var abonoUSD = parseFloat(abonos.abonoUSD || 0);
-    var abonoBS = parseFloat(abonos.abonoBS || 0);
-    
-    // 1. Recalcular las dos escalas para el historial
-    var precioEnBs = loy * bcv; // Los 10.600 Bs fijos legales
-    var deudaRestanteEnBs = precioEnBs - abonoBS; 
+    var abonoBS  = parseFloat(abonos.abonoBS  || 0);
+
+    // Detalle de pagos con método específico (nuevo)
+    var detallePagos = typeof Metodos.getDetallePagos === 'function' ? Metodos.getDetallePagos() : [];
+
+    // Recalcular vuelto
+    var precioEnBs            = loy * bcv;
+    var deudaRestanteEnBs     = precioEnBs - abonoBS;
     var saldoRealPorCobrarUSD = deudaRestanteEnBs > 0 ? (deudaRestanteEnBs / mercado) : 0;
+    var vueltoTotalEnUSD      = abonoUSD > saldoRealPorCobrarUSD ? (abonoUSD - saldoRealPorCobrarUSD) : 0;
 
-    var vueltoTotalEnUSD = 0;
-    if (abonoUSD > saldoRealPorCobrarUSD) {
-        vueltoTotalEnUSD = abonoUSD - saldoRealPorCobrarUSD;
-    }
-
-    var vueltoUSD = 0;
-    var vueltoBS = 0;
+    var vueltoUSD      = 0;
+    var vueltoBS       = 0;
     var medioVueltoUSD = "N/A";
-    var medioVueltoBS = "N/A";
+    var medioVueltoBS  = "N/A";
 
-    // 2. Desglosar el vuelto mixto auditado
     if (vueltoTotalEnUSD > 0.009) {
-        vueltoUSD = Math.floor(vueltoTotalEnUSD); // Billetes enteros de $
-        var centavosUSD = vueltoTotalEnUSD - vueltoUSD; // Fracción decimal
-        vueltoBS = parseFloat((centavosUSD * bcv).toFixed(2)); // Centavos pasados a Bs por BCV
+      vueltoUSD = Math.floor(vueltoTotalEnUSD);
+      var centavosUSD = vueltoTotalEnUSD - vueltoUSD;
+      vueltoBS = parseFloat((centavosUSD * bcv).toFixed(2));
 
-        // Leer qué métodos seleccionó el cajero en el HTML
-        var sUSD = document.getElementById('vuelto-medio-usd');
-        if (vueltoUSD >= 1 && sUSD) {
-            medioVueltoUSD = sUSD.options[sUSD.selectedIndex].text;
-        } else if (vueltoUSD >= 1) {
-            medioVueltoUSD = "Efectivo USD";
-        }
+      var sUSD = document.getElementById('vuelto-medio-usd');
+      if (vueltoUSD >= 1 && sUSD) medioVueltoUSD = sUSD.options[sUSD.selectedIndex].text;
+      else if (vueltoUSD >= 1)    medioVueltoUSD = "Efectivo USD";
 
-        var sBS = document.getElementById('vuelto-medio-bs');
-        if (vueltoBS > 0.05 && sBS) {
-            medioVueltoBS = sBS.options[sBS.selectedIndex].text;
-        } else if (vueltoBS > 0.05) {
-            medioVueltoBS = "Pago Móvil";
-        }
+      var sBS = document.getElementById('vuelto-medio-bs');
+      if (vueltoBS > 0.05 && sBS) medioVueltoBS = sBS.options[sBS.selectedIndex].text;
+      else if (vueltoBS > 0.05)   medioVueltoBS = "Pago Móvil";
     }
 
-    // 3. Crear el objeto de auditoría con datos interconectados
     var nuevaVentaLog = {
-        id: "V-" + Date.now(),
-        fecha: new Date().toLocaleString('es-VE', { timeZone: 'America/Caracas' }),
-        montoFacturadoUSD: loy, // El precio de vitrina ($20)
-        tasaBCV: bcv,
-        tasaMercado: mercado,
-        ingresos: {
-            efectivoUSD: abonoUSD,
-            bolivares: abonoBS
-        },
-        vueltos: {
-            montoUSD: vueltoUSD,
-            medioUSD: medioVueltoUSD,
-            montoBS: vueltoBS,
-            medioBS: medioVueltoBS
-        }
+      id:                "V-" + Date.now(),
+      fecha:             new Date().toLocaleString('es-VE', { timeZone: 'America/Caracas' }),
+      montoFacturadoUSD: loy,
+      tasaBCV:           bcv,
+      tasaMercado:       mercado,
+      // ── NUEVO: array de pagos con detalle por método ──
+      pagos: detallePagos,
+      // ── compatibilidad con código anterior ──
+      ingresos: {
+        efectivoUSD: abonoUSD,
+        bolivares:   abonoBS
+      },
+      vueltos: {
+        montoUSD: vueltoUSD,
+        medioUSD: medioVueltoUSD,
+        montoBS:  vueltoBS,
+        medioBS:  medioVueltoBS
+      }
     };
 
-    // 4. Persistencia en el historial local
     var historial = JSON.parse(localStorage.getItem('vexacto_historial')) || [];
     historial.push(nuevaVentaLog);
     localStorage.setItem('vexacto_historial', JSON.stringify(historial));
 
     alert("¡Cobro procesado con éxito y registrado en el historial!");
-    
-    // 5. Reiniciar calculadora
+
     if (typeof this.nuevaVenta === 'function') this.nuevaVenta();
     else if (typeof Calculadora.nuevaVenta === 'function') Calculadora.nuevaVenta();
-},
+  },
 
-
-
-
- nuevaVenta() {
-  document.getElementById('loyverse').value = '';
-  const vs = document.getElementById('vuelto-section');
-  if (vs) vs.style.display = 'none';  // ← agrega esta línea
-  Metodos.limpiar();
-  this.calc();
-  document.getElementById('loyverse').focus();
-}
+  nuevaVenta() {
+    document.getElementById('loyverse').value = '';
+    const vs = document.getElementById('vuelto-section');
+    if (vs) vs.style.display = 'none';
+    Metodos.limpiar();
+    this.calc();
+    document.getElementById('loyverse').focus();
+  }
 };
 
 /* ════════════════════════════════════════
@@ -906,8 +919,8 @@ const App = {
   mostrar() {
     const b = document.getElementById('bloqueo-inicial');
     if (b) b.parentNode.removeChild(b);
-    document.getElementById('muro-bloqueo').style.cssText = 'display:none!important';
-    document.getElementById('app-content').style.cssText  = 'display:block!important';
+    document.getElementById('muro-bloqueo').style.cssText  = 'display:none!important';
+    document.getElementById('app-content').style.cssText   = 'display:block!important';
 
     Tema.init();
     ModoSelector.init();
@@ -926,22 +939,22 @@ const App = {
 };
 
 /* ════════════════════════════════════════
-   FUNCIONES GLOBALES (onclick en HTML)
+   FUNCIONES GLOBALES
    ════════════════════════════════════════ */
-function pedirAcceso()       { Licencia.pedirAcceso(); }
-function activar()           { Licencia.activar(); }
-function accionInstalar()    { InstallPWA.accion(); }
-function cerrarModalIos()    { InstallPWA.cerrarIos(); }
+function pedirAcceso()        { Licencia.pedirAcceso(); }
+function activar()            { Licencia.activar(); }
+function accionInstalar()     { InstallPWA.accion(); }
+function cerrarModalIos()     { InstallPWA.cerrarIos(); }
 function confirmarOnboarding(){ Onboarding.confirmar(); }
-function abrirDrawer()       { Drawer.open(); }
-function cerrarDrawer()      { Drawer.close(); }
-function abrirConfigTasas()  { ModalConfig.abrirTasas(); }
-function abrirSelectorModo() { ModalConfig.abrirModo(); }
-function cerrarModalConfig() { ModalConfig.cerrar(); }
-function toggleTema()        { Tema.toggle(); }
-function calc()              { Calculadora.calc(); }
-function nuevaVenta()        { Calculadora.nuevaVenta(); }
-function agregarMetodo()     { Metodos.agregar(); }
+function abrirDrawer()        { Drawer.open(); }
+function cerrarDrawer()       { Drawer.close(); }
+function abrirConfigTasas()   { ModalConfig.abrirTasas(); }
+function abrirSelectorModo()  { ModalConfig.abrirModo(); }
+function cerrarModalConfig()  { ModalConfig.cerrar(); }
+function toggleTema()         { Tema.toggle(); }
+function calc()               { Calculadora.calc(); }
+function nuevaVenta()         { Calculadora.nuevaVenta(); }
+function agregarMetodo()      { Metodos.agregar(); }
 function irSoporte() {
   Drawer.close();
   window.open(`https://wa.me/${CONFIG.WS_NUMBER}?text=${encodeURIComponent('Hola, necesito soporte con vExacto')}`, '_blank');
@@ -964,8 +977,6 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 else _arrancar();
 window.addEventListener('load', _arrancar);
 
-// Auto-actualización del Service Worker
-// Cuando hay nueva versión en GitHub, se activa sola sin que el usuario haga nada
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     window.location.reload();
